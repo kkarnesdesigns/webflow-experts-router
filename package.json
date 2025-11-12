@@ -1,0 +1,26 @@
+{
+  "name": "webflow-experts-router",
+  "version": "1.0.0",
+  "description": "Dynamic page routing and generation for Webflow Experts pages with automatic skill and location combinations",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node api/generate-routes.js",
+    "test": "node test-local.js",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "webflow",
+    "wized",
+    "dynamic-routing",
+    "cms"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.0.0"
+  }
+}
