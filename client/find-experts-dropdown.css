@@ -127,6 +127,22 @@
 .mega-dropdown-panel--skills {
   padding-right: 24px;
   border-right: 1px solid #e5e7eb;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.mega-dropdown-panel--skills::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mega-dropdown-panel--skills::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.mega-dropdown-panel--skills::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 .mega-dropdown-panel--locations {
