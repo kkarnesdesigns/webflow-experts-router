@@ -1,0 +1,420 @@
+/*
+  Gyde Experts Mega Menu Styles
+  Add this to your Webflow site's custom code in the <head> section
+*/
+
+/* ============================================
+   CSS Variables - Customize these to match your brand
+   ============================================ */
+:root {
+  --gyde-nav-bg: #ffffff;
+  --gyde-nav-text: #1a1a2e;
+  --gyde-nav-text-light: #64648c;
+  --gyde-nav-primary: #3730a3; /* Your brand primary color */
+  --gyde-nav-primary-hover: #4f46e5;
+  --gyde-nav-border: #e5e7eb;
+  --gyde-nav-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --gyde-nav-mega-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --gyde-nav-height: 72px;
+  --gyde-nav-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ============================================
+   Base Navigation Styles
+   ============================================ */
+.gyde-mega-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: var(--gyde-nav-bg);
+  border-bottom: 1px solid var(--gyde-nav-border);
+  font-family: var(--gyde-nav-font);
+}
+
+.gyde-nav-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: var(--gyde-nav-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Logo */
+.gyde-nav-logo {
+  flex-shrink: 0;
+}
+
+.gyde-nav-logo img {
+  height: 32px;
+  width: auto;
+}
+
+/* Main Menu */
+.gyde-nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  justify-content: center;
+}
+
+.gyde-nav-item {
+  position: relative;
+}
+
+.gyde-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gyde-nav-text);
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.gyde-nav-link:hover {
+  background: #f3f4f6;
+  color: var(--gyde-nav-primary);
+}
+
+.gyde-chevron {
+  transition: transform 0.2s ease;
+}
+
+.gyde-nav-item.gyde-has-mega:hover .gyde-chevron,
+.gyde-nav-item.gyde-has-mega.is-open .gyde-chevron {
+  transform: rotate(180deg);
+}
+
+/* Right Side Actions */
+.gyde-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.gyde-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--gyde-nav-primary);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.gyde-nav-btn:hover {
+  background: var(--gyde-nav-primary-hover);
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   Mega Menu Dropdown
+   ============================================ */
+.gyde-mega-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 900px;
+  background: var(--gyde-nav-bg);
+  border-radius: 16px;
+  box-shadow: var(--gyde-nav-mega-shadow);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s ease;
+  margin-top: 8px;
+  border: 1px solid var(--gyde-nav-border);
+}
+
+/* Show mega menu on hover */
+.gyde-nav-item.gyde-has-mega:hover .gyde-mega-menu,
+.gyde-nav-item.gyde-has-mega.is-open .gyde-mega-menu {
+  opacity: 1;
+  visibility: visible;
+  margin-top: 0;
+}
+
+/* Arrow indicator */
+.gyde-mega-menu::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--gyde-nav-bg);
+}
+
+.gyde-mega-inner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding: 24px 0;
+}
+
+/* Mega Menu Columns */
+.gyde-mega-column {
+  padding: 0 24px;
+  border-right: 1px solid var(--gyde-nav-border);
+}
+
+.gyde-mega-column:last-child {
+  border-right: none;
+}
+
+.gyde-mega-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gyde-nav-text-light);
+  margin: 0 0 12px 0;
+  padding: 0;
+}
+
+/* Mega Menu Lists */
+.gyde-mega-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gyde-mega-list li {
+  margin: 0;
+}
+
+.gyde-mega-list a {
+  display: block;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--gyde-nav-text);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.gyde-mega-list a:hover {
+  color: var(--gyde-nav-primary);
+}
+
+/* Scrollable Lists (States/Cities) */
+.gyde-mega-list--scrollable {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.gyde-mega-list--scrollable::-webkit-scrollbar {
+  width: 4px;
+}
+
+.gyde-mega-list--scrollable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.gyde-mega-list--scrollable::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.gyde-mega-list--scrollable::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* View All Link */
+.gyde-mega-view-all {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gyde-nav-primary);
+  text-decoration: none;
+}
+
+.gyde-mega-view-all:hover {
+  text-decoration: underline;
+}
+
+/* Featured CTA Box */
+.gyde-mega-cta {
+  margin-top: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+}
+
+.gyde-mega-cta h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gyde-nav-text);
+  margin: 0 0 8px 0;
+}
+
+.gyde-mega-cta p {
+  font-size: 13px;
+  color: var(--gyde-nav-text-light);
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.gyde-mega-cta-btn {
+  display: inline-block;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--gyde-nav-primary);
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.gyde-mega-cta-btn:hover {
+  background: var(--gyde-nav-primary-hover);
+}
+
+/* ============================================
+   Mobile Toggle Button
+   ============================================ */
+.gyde-mobile-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.gyde-mobile-toggle span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--gyde-nav-text);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+/* ============================================
+   Mobile Styles
+   ============================================ */
+@media (max-width: 1024px) {
+  .gyde-nav-menu {
+    position: fixed;
+    top: var(--gyde-nav-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: column;
+    align-items: stretch;
+    background: var(--gyde-nav-bg);
+    padding: 24px;
+    gap: 0;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .gyde-mega-nav.is-mobile-open .gyde-nav-menu {
+    transform: translateX(0);
+  }
+
+  .gyde-mobile-toggle {
+    display: flex;
+  }
+
+  .gyde-nav-link {
+    padding: 16px 0;
+    font-size: 18px;
+    border-bottom: 1px solid var(--gyde-nav-border);
+  }
+
+  .gyde-mega-menu {
+    position: static;
+    transform: none;
+    min-width: auto;
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    margin-top: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transition: max-height 0.3s ease;
+  }
+
+  .gyde-mega-menu::before {
+    display: none;
+  }
+
+  .gyde-nav-item.gyde-has-mega.is-open .gyde-mega-menu {
+    max-height: 2000px;
+  }
+
+  .gyde-mega-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 16px 0;
+  }
+
+  .gyde-mega-column {
+    padding: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--gyde-nav-border);
+    padding-bottom: 24px;
+  }
+
+  .gyde-mega-column:last-child {
+    border-bottom: none;
+  }
+
+  .gyde-mega-list--scrollable {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .gyde-nav-actions {
+    display: none;
+  }
+
+  /* Hamburger animation */
+  .gyde-mega-nav.is-mobile-open .gyde-mobile-toggle span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+  }
+
+  .gyde-mega-nav.is-mobile-open .gyde-mobile-toggle span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .gyde-mega-nav.is-mobile-open .gyde-mobile-toggle span:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -5px);
+  }
+}
+
+/* ============================================
+   Body Padding (to account for fixed nav)
+   ============================================ */
+body {
+  padding-top: var(--gyde-nav-height);
+}
