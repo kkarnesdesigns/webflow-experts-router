@@ -145,6 +145,21 @@
   background: #4f46e5;
 }
 
+/* Loading state */
+.mega-dropdown-loading {
+  padding: 40px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.mega-dropdown-error {
+  padding: 40px;
+  text-align: center;
+  color: #dc2626;
+  font-size: 14px;
+}
+
 /* ============================================
    Mobile Responsive
    ============================================ */

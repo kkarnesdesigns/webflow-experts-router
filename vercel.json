@@ -28,6 +28,10 @@
       "dest": "/api/get-experts.js"
     },
     {
+      "src": "/api/dropdown-menu",
+      "dest": "/api/dropdown-menu.js"
+    },
+    {
       "src": "/client/(.*)",
       "dest": "/client/$1"
     }
