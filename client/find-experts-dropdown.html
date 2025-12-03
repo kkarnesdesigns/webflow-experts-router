@@ -1,79 +1,213 @@
 <!--
-  Find Experts Mega Dropdown Content
+  Find Experts Mega Dropdown - Interactive Filter Menu
 
-  This goes INSIDE your existing Webflow "Navigation Dropdown List" element.
-  The content is dynamically loaded from the API.
+  Step 1: Select a Category
+  Step 2: Select a Skill (filtered by category)
+  Step 3: Select a Location (states/cities with experts in that skill)
+  → Navigates to the final page
 -->
 
 <div class="mega-dropdown-inner" id="experts-dropdown">
-  <!-- Loading state -->
   <div class="mega-dropdown-loading">Loading...</div>
 </div>
 
 <script>
 (function() {
   const DROPDOWN_API = 'https://webflow-experts-router.vercel.app/api/dropdown-menu';
+  const MANIFEST_API = 'https://webflow-experts-router.vercel.app/api/route-manifest';
   const container = document.getElementById('experts-dropdown');
+
+  let menuData = null;
+  let manifestData = null;
+  let selectedCategory = null;
+  let selectedSkill = null;
 
   async function loadDropdownData() {
     try {
-      const response = await fetch(DROPDOWN_API);
-      if (!response.ok) throw new Error('Failed to load menu');
-      const data = await response.json();
-      renderDropdown(data);
+      const [menuResponse, manifestResponse] = await Promise.all([
+        fetch(DROPDOWN_API),
+        fetch(MANIFEST_API)
+      ]);
+
+      if (!menuResponse.ok || !manifestResponse.ok) throw new Error('Failed to load menu');
+
+      menuData = await menuResponse.json();
+      manifestData = await manifestResponse.json();
+
+      renderStep1();
     } catch (error) {
       console.error('Error loading dropdown:', error);
       container.innerHTML = '<div class="mega-dropdown-error">Unable to load menu</div>';
     }
   }
 
-  function renderDropdown(data) {
-    const { states, cities, categories, popularSkills } = data;
+  // Step 1: Select Category
+  function renderStep1() {
+    selectedCategory = null;
+    selectedSkill = null;
 
     container.innerHTML = `
-      <!-- Column 1: By State -->
-      <div class="mega-dropdown-column">
-        <div class="mega-dropdown-title">By State</div>
-        <div class="mega-dropdown-list mega-dropdown-list--scroll">
-          ${states.map(s => `<a href="${s.path}" class="mega-dropdown-link">${s.name}</a>`).join('')}
+      <div class="mega-dropdown-step">
+        <div class="mega-dropdown-step-header">
+          <div class="mega-dropdown-step-number">1</div>
+          <div class="mega-dropdown-step-title">Select a Category</div>
         </div>
-      </div>
-
-      <!-- Column 2: By City -->
-      <div class="mega-dropdown-column">
-        <div class="mega-dropdown-title">By City</div>
-        <div class="mega-dropdown-list mega-dropdown-list--scroll">
-          ${cities.map(c => `<a href="${c.path}" class="mega-dropdown-link">${c.name}</a>`).join('')}
-        </div>
-      </div>
-
-      <!-- Column 3: By Category -->
-      <div class="mega-dropdown-column">
-        <div class="mega-dropdown-title">By Category</div>
-        <div class="mega-dropdown-list">
-          ${categories.slice(0, 12).map(c => `<a href="/hire/new-york/${c.slug}" class="mega-dropdown-link">${c.name}</a>`).join('')}
-        </div>
-        <a href="/hire" class="mega-dropdown-view-all">View All Categories →</a>
-      </div>
-
-      <!-- Column 4: Popular Skills + CTA -->
-      <div class="mega-dropdown-column">
-        <div class="mega-dropdown-title">Popular Skills</div>
-        <div class="mega-dropdown-list">
-          ${popularSkills.map(s => `<a href="/hire/new-york/${s.categorySlug}/${s.slug}" class="mega-dropdown-link">${s.name}</a>`).join('')}
-        </div>
-
-        <!-- CTA Box -->
-        <div class="mega-dropdown-cta">
-          <div class="mega-dropdown-cta-title">Need help finding an expert?</div>
-          <div class="mega-dropdown-cta-text">Tell us about your project and we'll match you.</div>
-          <a href="/post-project" class="mega-dropdown-cta-btn">Post a Project</a>
+        <div class="mega-dropdown-grid">
+          ${menuData.categories.map(c => `
+            <button class="mega-dropdown-option" data-category="${c.slug}" data-name="${c.name}">
+              <span class="mega-dropdown-option-name">${c.name}</span>
+              <span class="mega-dropdown-option-count">${c.totalExperts} experts</span>
+            </button>
+          `).join('')}
         </div>
       </div>
     `;
+
+    // Add click handlers
+    container.querySelectorAll('[data-category]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedCategory = {
+          slug: btn.dataset.category,
+          name: btn.dataset.name
+        };
+        renderStep2();
+      });
+    });
   }
 
-  // Load on page load
+  // Step 2: Select Skill (filtered by selected category)
+  function renderStep2() {
+    // Find skills for this category from manifest
+    const skillsInCategory = [];
+    const skillSlugs = new Set();
+
+    for (const [path, params] of Object.entries(manifestData.routes)) {
+      if (params.category === selectedCategory.slug && params.skillId && !skillSlugs.has(params.skill)) {
+        skillSlugs.add(params.skill);
+        skillsInCategory.push({
+          slug: params.skill,
+          name: params.skillName,
+          expertCount: params.expertCount || 0
+        });
+      }
+    }
+
+    // Sort by expert count
+    skillsInCategory.sort((a, b) => b.expertCount - a.expertCount);
+
+    container.innerHTML = `
+      <div class="mega-dropdown-step">
+        <div class="mega-dropdown-step-header">
+          <button class="mega-dropdown-back" id="back-to-step1">← Back</button>
+          <div class="mega-dropdown-step-number">2</div>
+          <div class="mega-dropdown-step-title">Select a Skill</div>
+          <div class="mega-dropdown-step-context">in ${selectedCategory.name}</div>
+        </div>
+        <div class="mega-dropdown-grid mega-dropdown-grid--skills">
+          ${skillsInCategory.map(s => `
+            <button class="mega-dropdown-option" data-skill="${s.slug}" data-name="${s.name}">
+              <span class="mega-dropdown-option-name">${s.name}</span>
+              <span class="mega-dropdown-option-count">${s.expertCount} experts</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    // Back button
+    document.getElementById('back-to-step1').addEventListener('click', renderStep1);
+
+    // Skill click handlers
+    container.querySelectorAll('[data-skill]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedSkill = {
+          slug: btn.dataset.skill,
+          name: btn.dataset.name
+        };
+        renderStep3();
+      });
+    });
+  }
+
+  // Step 3: Select Location (states/cities with this category+skill combo)
+  function renderStep3() {
+    // Find locations for this category+skill from manifest
+    const statesMap = new Map();
+    const citiesMap = new Map();
+
+    for (const [path, params] of Object.entries(manifestData.routes)) {
+      if (params.category === selectedCategory.slug && params.skill === selectedSkill.slug) {
+        // State-level route
+        if (params.stateId && !params.cityId) {
+          if (!statesMap.has(params.stateId)) {
+            statesMap.set(params.stateId, {
+              path: path,
+              name: params.stateName,
+              slug: params.state,
+              expertCount: params.expertCount || 0
+            });
+          }
+        }
+        // City-level route
+        if (params.cityId) {
+          if (!citiesMap.has(params.cityId)) {
+            citiesMap.set(params.cityId, {
+              path: path,
+              name: params.cityName,
+              state: params.stateName,
+              slug: params.city,
+              expertCount: params.expertCount || 0
+            });
+          }
+        }
+      }
+    }
+
+    const states = Array.from(statesMap.values()).sort((a, b) => b.expertCount - a.expertCount);
+    const cities = Array.from(citiesMap.values()).sort((a, b) => b.expertCount - a.expertCount).slice(0, 12);
+
+    container.innerHTML = `
+      <div class="mega-dropdown-step">
+        <div class="mega-dropdown-step-header">
+          <button class="mega-dropdown-back" id="back-to-step2">← Back</button>
+          <div class="mega-dropdown-step-number">3</div>
+          <div class="mega-dropdown-step-title">Select a Location</div>
+          <div class="mega-dropdown-step-context">${selectedSkill.name} in ${selectedCategory.name}</div>
+        </div>
+        <div class="mega-dropdown-locations">
+          <div class="mega-dropdown-locations-col">
+            <div class="mega-dropdown-subtitle">By State</div>
+            <div class="mega-dropdown-list mega-dropdown-list--scroll">
+              ${states.map(s => `
+                <a href="${s.path}" class="mega-dropdown-link">
+                  <span>${s.name}</span>
+                  <span class="mega-dropdown-link-count">${s.expertCount}</span>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+          ${cities.length > 0 ? `
+          <div class="mega-dropdown-locations-col">
+            <div class="mega-dropdown-subtitle">Top Cities</div>
+            <div class="mega-dropdown-list mega-dropdown-list--scroll">
+              ${cities.map(c => `
+                <a href="${c.path}" class="mega-dropdown-link">
+                  <span>${c.name}, ${c.state}</span>
+                  <span class="mega-dropdown-link-count">${c.expertCount}</span>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    // Back button
+    document.getElementById('back-to-step2').addEventListener('click', renderStep2);
+  }
+
+  // Initialize
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', loadDropdownData);
   } else {
