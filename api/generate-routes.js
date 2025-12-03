@@ -36,6 +36,7 @@ module.exports = async (req, res) => {
       citiesCollectionId: process.env.WEBFLOW_CITIES_COLLECTION_ID,
       statesCollectionId: process.env.WEBFLOW_STATES_COLLECTION_ID,
       skillsCollectionId: process.env.WEBFLOW_SKILLS_COLLECTION_ID,
+      categoriesCollectionId: process.env.WEBFLOW_CATEGORIES_COLLECTION_ID,
       baseURL: process.env.SITE_BASE_URL || 'https://yourdomain.com',
       basePath: process.env.EXPERTS_BASE_PATH || '/experts'
     };

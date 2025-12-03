@@ -73,9 +73,9 @@ function matchesExpertRoutePattern(pathname) {
   }
 
   // Check for valid patterns:
-  // /hire/{state}/{skill} = 3 segments
-  // /hire/{state}/{city}/{skill} = 4 segments
-  if (segments.length === 3 || segments.length === 4) {
+  // /hire/{state}/{category}/{skill} = 4 segments
+  // /hire/{state}/{city}/{category}/{skill} = 5 segments
+  if (segments.length === 4 || segments.length === 5) {
     return { isMatch: true, segments: segments.length };
   }
 

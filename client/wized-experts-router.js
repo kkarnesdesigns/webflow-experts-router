@@ -23,25 +23,27 @@
       return null;
     }
 
-    // State-level route: /experts/{state}/{skill}
-    // Pattern: ['experts', state, skill] - 3 segments
-    if (segments.length === 3) {
+    // State-level route: /hire/{state}/{category}/{skill}
+    // Pattern: ['hire', state, category, skill] - 4 segments
+    if (segments.length === 4) {
       return {
         type: 'state',
         state: segments[1].toLowerCase(),
-        skill: segments[2].toLowerCase(),
+        category: segments[2].toLowerCase(),
+        skill: segments[3].toLowerCase(),
         city: null
       };
     }
 
-    // City-level route: /experts/{state}/{city}/{skill}
-    // Pattern: ['experts', state, city, skill] - 4 segments
-    if (segments.length === 4) {
+    // City-level route: /hire/{state}/{city}/{category}/{skill}
+    // Pattern: ['hire', state, city, category, skill] - 5 segments
+    if (segments.length === 5) {
       return {
         type: 'city',
         state: segments[1].toLowerCase(),
         city: segments[2].toLowerCase(),
-        skill: segments[3].toLowerCase()
+        category: segments[3].toLowerCase(),
+        skill: segments[4].toLowerCase()
       };
     }
 
