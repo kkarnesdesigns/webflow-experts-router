@@ -146,42 +146,39 @@
    * Uses Wized's native event system when available for reliable timing
    */
   function storeInWizedAndTriggerRequest(params) {
-    // Function to store params and execute request
-    const storeAndExecute = async () => {
+    // Function to store params in Wized
+    const storeParams = () => {
+      window.Wized.data.v.routeParams = params;
+      window.Wized.data.v.stateName = params.stateName || '';
+      window.Wized.data.v.cityName = params.cityName || '';
+      window.Wized.data.v.categoryName = params.categoryName || '';
+      window.Wized.data.v.skillName = params.skillName || '';
+      window.Wized.data.v.certificationName = params.certificationName || '';
+      window.Wized.data.v.stateId = params.stateId || '';
+      window.Wized.data.v.cityId = params.cityId || '';
+      window.Wized.data.v.categoryId = params.categoryId || '';
+      window.Wized.data.v.skillId = params.skillId || '';
+      window.Wized.data.v.certificationId = params.certificationId || '';
+      console.log('Stored route params in Wized data store');
+    };
+
+    // Function to execute the request with retries
+    const executeRequest = async (attempt = 1) => {
       try {
-        // Store all params
-        window.Wized.data.v.routeParams = params;
-        window.Wized.data.v.stateName = params.stateName || '';
-        window.Wized.data.v.cityName = params.cityName || '';
-        window.Wized.data.v.categoryName = params.categoryName || '';
-        window.Wized.data.v.skillName = params.skillName || '';
-        window.Wized.data.v.certificationName = params.certificationName || '';
-        window.Wized.data.v.stateId = params.stateId || '';
-        window.Wized.data.v.cityId = params.cityId || '';
-        window.Wized.data.v.categoryId = params.categoryId || '';
-        window.Wized.data.v.skillId = params.skillId || '';
-        window.Wized.data.v.certificationId = params.certificationId || '';
-        console.log('Stored route params in Wized data store');
-
-        // Wait a frame for Wized to process the data changes
-        await new Promise(resolve => requestAnimationFrame(resolve));
-
-        // Execute the request
-        console.log('Triggering Wized get_experts request...');
+        console.log(`Triggering Wized get_experts request (attempt ${attempt})...`);
         const result = await window.Wized.requests.execute('get_experts');
         console.log('Wized request result:', result);
+
+        // Check if result has data - if undefined or empty, Wized may need more time
+        if (result === undefined && attempt < 3) {
+          console.log('Request returned undefined, retrying...');
+          setTimeout(() => executeRequest(attempt + 1), 300 * attempt);
+        }
       } catch (e) {
-        console.warn('Could not trigger Wized request:', e);
-        // Retry once after a delay if the request fails
-        setTimeout(async () => {
-          try {
-            console.log('Retrying Wized get_experts request...');
-            const result = await window.Wized.requests.execute('get_experts');
-            console.log('Wized retry result:', result);
-          } catch (retryError) {
-            console.error('Wized retry also failed:', retryError);
-          }
-        }, 500);
+        console.warn(`Wized request attempt ${attempt} failed:`, e);
+        if (attempt < 3) {
+          setTimeout(() => executeRequest(attempt + 1), 300 * attempt);
+        }
       }
     };
 
@@ -193,16 +190,26 @@
              typeof window.Wized.requests?.execute === 'function';
     };
 
-    if (isWizedReady()) {
-      // Wized is ready, execute immediately
-      storeAndExecute();
-    } else if (window.Wized && typeof window.Wized.on === 'function') {
-      // Use Wized's native event system to wait for initialization
-      console.log('Waiting for Wized ready event...');
+    // Main initialization flow using Wized's onReady
+    if (window.Wized && typeof window.Wized.on === 'function') {
+      // Use Wized's native event system - this is the most reliable
       window.Wized.on('ready', () => {
         console.log('Wized ready event fired');
-        storeAndExecute();
+        storeParams();
+        // Give Wized time to process params before executing
+        setTimeout(() => executeRequest(), 100);
       });
+
+      // Also store params immediately if Wized data is available
+      // This handles the case where 'ready' already fired
+      if (isWizedReady()) {
+        storeParams();
+        setTimeout(() => executeRequest(), 100);
+      }
+    } else if (isWizedReady()) {
+      // Wized is ready but doesn't have .on() method
+      storeParams();
+      setTimeout(() => executeRequest(), 100);
     } else {
       // Fallback: poll for Wized to be ready
       let attempts = 0;
@@ -211,8 +218,21 @@
       const pollForWized = () => {
         attempts++;
 
-        if (isWizedReady()) {
-          storeAndExecute();
+        // Check for Wized.on becoming available
+        if (window.Wized && typeof window.Wized.on === 'function') {
+          window.Wized.on('ready', () => {
+            console.log('Wized ready event fired (from poll)');
+            storeParams();
+            setTimeout(() => executeRequest(), 100);
+          });
+          // Also check if already ready
+          if (isWizedReady()) {
+            storeParams();
+            setTimeout(() => executeRequest(), 100);
+          }
+        } else if (isWizedReady()) {
+          storeParams();
+          setTimeout(() => executeRequest(), 100);
         } else if (attempts < maxAttempts) {
           setTimeout(pollForWized, 100);
         } else {
