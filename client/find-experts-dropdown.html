@@ -141,7 +141,7 @@
           <div class="mega-dropdown-panel mega-dropdown-panel--skills">
             <div class="mega-dropdown-subtitle">Filter by Skill (optional)</div>
             <div class="mega-dropdown-grid mega-dropdown-grid--skills">
-              ${skillsInCategory.slice(0, 8).map(s => `
+              ${skillsInCategory.map(s => `
                 <button class="mega-dropdown-option" data-skill="${s.slug}" data-name="${s.name}">
                   <span class="mega-dropdown-option-name">${s.name}</span>
                 </button>
