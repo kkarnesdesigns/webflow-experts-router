@@ -136,6 +136,48 @@
     } catch (e) {
       console.warn('Could not store route params in session storage:', e);
     }
+
+    // Trigger Wized request if Wized is available
+    triggerWizedRequest();
+  }
+
+  /**
+   * Trigger the Wized get_experts request
+   * Waits for Wized to be ready if not already initialized
+   */
+  function triggerWizedRequest() {
+    // Check if Wized is available
+    if (window.Wized) {
+      // Wized is ready, execute the request
+      executeWizedRequest();
+    } else {
+      // Wait for Wized to initialize
+      window.addEventListener('wized:ready', executeWizedRequest, { once: true });
+
+      // Also try after a short delay as a fallback
+      setTimeout(() => {
+        if (window.Wized) {
+          executeWizedRequest();
+        }
+      }, 1000);
+    }
+  }
+
+  /**
+   * Execute the Wized request
+   */
+  function executeWizedRequest() {
+    try {
+      if (window.Wized && window.Wized.requests) {
+        console.log('Triggering Wized get_experts request...');
+        window.Wized.requests.execute('get_experts');
+      } else if (window.Wized && window.Wized.data && window.Wized.data.r) {
+        // Alternative Wized API structure
+        console.log('Wized available but requests API not found, trying alternative...');
+      }
+    } catch (e) {
+      console.warn('Could not trigger Wized request:', e);
+    }
   }
 
   /**
