@@ -112,11 +112,11 @@
   color: #6b7280;
 }
 
-/* Two-panel layout (Step 2 - Skills + Locations) */
-.mega-dropdown-two-panel {
+/* Four-panel layout (Step 2 - Skills | Certifications | States | Cities) */
+.mega-dropdown-four-panel {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 16px;
 }
 
 .mega-dropdown-panel {
@@ -124,33 +124,26 @@
   flex-direction: column;
 }
 
-.mega-dropdown-panel--skills {
-  padding-right: 24px;
+.mega-dropdown-panel--skills,
+.mega-dropdown-panel--certs,
+.mega-dropdown-panel--states {
+  padding-right: 16px;
   border-right: 1px solid #e5e7eb;
-  max-height: 350px;
-  overflow-y: auto;
 }
 
-.mega-dropdown-panel--skills::-webkit-scrollbar {
-  width: 4px;
+.mega-dropdown-panel .mega-dropdown-list--scroll {
+  max-height: 300px;
 }
 
-.mega-dropdown-panel--skills::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 4px;
+/* Compact option buttons for skill/cert lists */
+.mega-dropdown-option--compact {
+  padding: 10px 12px;
+  width: 100%;
+  margin-bottom: 4px;
 }
 
-.mega-dropdown-panel--skills::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-.mega-dropdown-panel--locations {
-  padding-left: 0;
-}
-
-.mega-dropdown-panel .mega-dropdown-grid--skills {
-  grid-template-columns: 1fr;
+.mega-dropdown-option--compact .mega-dropdown-option-name {
+  margin-bottom: 0;
 }
 
 .mega-dropdown-subtitle--small {
@@ -256,20 +249,28 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .mega-dropdown-two-panel {
-    grid-template-columns: 1fr;
-    gap: 20px;
+  .mega-dropdown-four-panel {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
   }
 
-  .mega-dropdown-panel--skills {
-    padding-right: 0;
+  .mega-dropdown-panel--skills,
+  .mega-dropdown-panel--certs,
+  .mega-dropdown-panel--states {
+    padding-right: 16px;
+    border-right: 1px solid #e5e7eb;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .mega-dropdown-panel--certs,
+  .mega-dropdown-panel--cities {
     border-right: none;
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 20px;
+    padding-right: 0;
   }
 
-  .mega-dropdown-panel .mega-dropdown-grid--skills {
-    grid-template-columns: repeat(2, 1fr);
+  .mega-dropdown-panel .mega-dropdown-list--scroll {
+    max-height: 200px;
   }
 
   .mega-dropdown-locations {
@@ -279,6 +280,22 @@
 
   .mega-dropdown-step-context {
     display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .mega-dropdown-four-panel {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .mega-dropdown-panel--skills,
+  .mega-dropdown-panel--certs,
+  .mega-dropdown-panel--states {
+    padding-right: 0;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 16px;
   }
 }
 
