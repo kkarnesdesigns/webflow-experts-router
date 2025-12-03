@@ -1,8 +1,15 @@
 /**
  * Cloudflare Worker for Webflow Experts Router
  *
- * Intercepts requests to /hire/{state}/{skill} and /hire/{state}/{city}/{skill}
- * and serves the Webflow template page while preserving the URL
+ * Intercepts dynamic expert route requests and serves the Webflow template page
+ * while preserving the URL.
+ *
+ * Supported patterns:
+ * - /hire/{state}/{category}
+ * - /hire/{state}/{city}
+ * - /hire/{state}/{city}/{category}
+ * - /hire/{state}/{category}/{skill}
+ * - /hire/{state}/{city}/{category}/{skill}
  *
  * Leaves other /hire/* URLs untouched (e.g., /hire/contact, /hire/about)
  */
@@ -62,6 +69,13 @@ async function getRouteManifest() {
 /**
  * Check if a URL path matches the expert route pattern
  * Returns: { isMatch: boolean, segments: number }
+ *
+ * Valid patterns:
+ * - /hire/{state}/{category} = 3 segments
+ * - /hire/{state}/{city} = 3 segments
+ * - /hire/{state}/{city}/{category} = 4 segments
+ * - /hire/{state}/{category}/{skill} = 4 segments
+ * - /hire/{state}/{city}/{category}/{skill} = 5 segments
  */
 function matchesExpertRoutePattern(pathname) {
   // Remove trailing slash and split
@@ -72,10 +86,8 @@ function matchesExpertRoutePattern(pathname) {
     return { isMatch: false, segments: 0 };
   }
 
-  // Check for valid patterns:
-  // /hire/{state}/{category}/{skill} = 4 segments
-  // /hire/{state}/{city}/{category}/{skill} = 5 segments
-  if (segments.length === 4 || segments.length === 5) {
+  // Check for valid patterns (3-5 segments)
+  if (segments.length >= 3 && segments.length <= 5) {
     return { isMatch: true, segments: segments.length };
   }
 

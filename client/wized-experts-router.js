@@ -11,6 +11,13 @@
 
   /**
    * Parse the current URL path and extract route parameters
+   *
+   * Supported patterns:
+   * - /hire/{state}/{category} (3 segments) - state + category (validated against manifest)
+   * - /hire/{state}/{city} (3 segments) - state + city (validated against manifest)
+   * - /hire/{state}/{city}/{category} (4 segments) - state + city + category
+   * - /hire/{state}/{category}/{skill} (4 segments) - state + category + skill
+   * - /hire/{state}/{city}/{category}/{skill} (5 segments) - full path
    */
   function parseExpertsRoute() {
     const path = window.location.pathname;
@@ -23,19 +30,30 @@
       return null;
     }
 
-    // State-level route: /hire/{state}/{category}/{skill}
-    // Pattern: ['hire', state, category, skill] - 4 segments
-    if (segments.length === 4) {
+    // 3-segment routes: could be state/category OR state/city
+    // Pattern: ['hire', state, category-or-city] - 3 segments
+    // We'll let the manifest validation determine which type it is
+    if (segments.length === 3) {
       return {
-        type: 'state',
+        type: 'ambiguous-3', // Will be resolved by manifest lookup
         state: segments[1].toLowerCase(),
-        category: segments[2].toLowerCase(),
-        skill: segments[3].toLowerCase(),
-        city: null
+        segment2: segments[2].toLowerCase()
       };
     }
 
-    // City-level route: /hire/{state}/{city}/{category}/{skill}
+    // 4-segment routes: could be state/city/category OR state/category/skill
+    // Pattern: ['hire', state, X, Y] - 4 segments
+    // We'll let the manifest validation determine which type it is
+    if (segments.length === 4) {
+      return {
+        type: 'ambiguous-4', // Will be resolved by manifest lookup
+        state: segments[1].toLowerCase(),
+        segment2: segments[2].toLowerCase(),
+        segment3: segments[3].toLowerCase()
+      };
+    }
+
+    // City-level route with skill: /hire/{state}/{city}/{category}/{skill}
     // Pattern: ['hire', state, city, category, skill] - 5 segments
     if (segments.length === 5) {
       return {
@@ -126,24 +144,47 @@
   function updatePageMeta(params) {
     if (!params || !params.isValidRoute) return;
 
-    // Update page title
+    // Build page title based on route type
     let title = 'Find Experts';
-    if (params.type === 'city') {
-      title = `${params.skillName || params.skill} Experts in ${params.cityName || params.city}, ${params.stateName || params.state}`;
-    } else if (params.type === 'state') {
-      title = `${params.skillName || params.skill} Experts in ${params.stateName || params.state}`;
+    let description = '';
+
+    const categoryName = params.categoryName || params.category;
+    const skillName = params.skillName || params.skill;
+    const stateName = params.stateName || params.state;
+    const cityName = params.cityName || params.city;
+
+    switch (params.type) {
+      case 'state-category':
+        title = `${categoryName} Experts in ${stateName}`;
+        description = `Find qualified ${categoryName} experts in ${stateName}. Browse profiles and connect with professionals.`;
+        break;
+      case 'state-city':
+        title = `Experts in ${cityName}, ${stateName}`;
+        description = `Find qualified experts in ${cityName}, ${stateName}. Browse profiles and connect with professionals.`;
+        break;
+      case 'state-city-category':
+        title = `${categoryName} Experts in ${cityName}, ${stateName}`;
+        description = `Find qualified ${categoryName} experts in ${cityName}, ${stateName}. Browse profiles and connect with professionals.`;
+        break;
+      case 'state':
+        title = `${skillName} Experts in ${stateName}`;
+        description = `Find qualified ${skillName} experts in ${stateName}. Browse profiles and connect with professionals.`;
+        break;
+      case 'city':
+        title = `${skillName} Experts in ${cityName}, ${stateName}`;
+        description = `Find qualified ${skillName} experts in ${cityName}, ${stateName}. Browse profiles and connect with professionals.`;
+        break;
+      default:
+        title = 'Find Experts';
+        description = 'Find qualified experts. Browse profiles and connect with professionals.';
     }
+
     document.title = title;
 
     // Update meta description
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
-      const location = params.type === 'city'
-        ? `${params.cityName || params.city}, ${params.stateName || params.state}`
-        : params.stateName || params.state;
-      metaDesc.setAttribute('content',
-        `Find qualified ${params.skillName || params.skill} experts in ${location}. Browse profiles and connect with professionals.`
-      );
+      metaDesc.setAttribute('content', description);
     }
 
     // Update Open Graph tags
