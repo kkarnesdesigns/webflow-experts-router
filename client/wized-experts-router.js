@@ -18,8 +18,8 @@
     // Remove trailing slash and split into segments
     const segments = path.replace(/\/$/, '').split('/').filter(s => s);
 
-    // Check if this is an experts route
-    if (segments[0] !== 'experts') {
+    // Check if this is a hire/experts route
+    if (segments[0] !== 'hire' && segments[0] !== 'experts') {
       return null;
     }
 
@@ -53,8 +53,7 @@
    */
   async function fetchRouteManifest() {
     try {
-      // Change this URL to your actual Vercel deployment URL
-      const manifestUrl = '/api/route-manifest';
+      const manifestUrl = 'https://webflow-experts-router.vercel.app/api/route-manifest';
       const response = await fetch(manifestUrl);
 
       if (!response.ok) {
