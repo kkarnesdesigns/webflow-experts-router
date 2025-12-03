@@ -137,8 +137,45 @@
       console.warn('Could not store route params in session storage:', e);
     }
 
+    // Store params in Wized data store if available
+    storeInWized(params);
+
     // Trigger Wized request if Wized is available
     triggerWizedRequest();
+  }
+
+  /**
+   * Store route params in Wized's data store
+   */
+  function storeInWized(params) {
+    const setWizedData = () => {
+      if (window.Wized && window.Wized.data && window.Wized.data.v) {
+        // Store each param as a Wized variable
+        window.Wized.data.v.routeParams = params;
+        window.Wized.data.v.stateName = params.stateName || '';
+        window.Wized.data.v.cityName = params.cityName || '';
+        window.Wized.data.v.categoryName = params.categoryName || '';
+        window.Wized.data.v.skillName = params.skillName || '';
+        window.Wized.data.v.stateId = params.stateId || '';
+        window.Wized.data.v.cityId = params.cityId || '';
+        window.Wized.data.v.categoryId = params.categoryId || '';
+        window.Wized.data.v.skillId = params.skillId || '';
+        console.log('Stored route params in Wized data store');
+      }
+    };
+
+    if (window.Wized) {
+      setWizedData();
+    } else {
+      // Wait for Wized
+      const checkWized = setInterval(() => {
+        if (window.Wized) {
+          clearInterval(checkWized);
+          setWizedData();
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkWized), 5000);
+    }
   }
 
   /**
