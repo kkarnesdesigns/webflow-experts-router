@@ -3,16 +3,6 @@
   Add this to your Webflow site's custom code in <head>
 */
 
-/* Override Webflow's default dropdown list styles */
-.navigation-dropdown-list,
-.w-dropdown-list {
-  min-width: 700px !important;
-  padding: 0 !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-}
 
 /* Main container */
 .mega-dropdown-inner {
@@ -122,6 +112,36 @@
   color: #6b7280;
 }
 
+/* Two-panel layout (Step 2 - Skills + Locations) */
+.mega-dropdown-two-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.mega-dropdown-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.mega-dropdown-panel--skills {
+  padding-right: 24px;
+  border-right: 1px solid #e5e7eb;
+}
+
+.mega-dropdown-panel--locations {
+  padding-left: 0;
+}
+
+.mega-dropdown-panel .mega-dropdown-grid--skills {
+  grid-template-columns: 1fr;
+}
+
+.mega-dropdown-subtitle--small {
+  font-size: 10px;
+  margin-bottom: 8px;
+}
+
 /* Locations layout (Step 3) */
 .mega-dropdown-locations {
   display: grid;
@@ -212,19 +232,27 @@
    Mobile Responsive
    ============================================ */
 @media (max-width: 991px) {
-  .navigation-dropdown-list,
-  .w-dropdown-list {
-    min-width: 100% !important;
-    left: 0 !important;
-    transform: none !important;
-    position: relative !important;
-  }
-
   .mega-dropdown-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
   .mega-dropdown-grid--skills {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mega-dropdown-two-panel {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .mega-dropdown-panel--skills {
+    padding-right: 0;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 20px;
+  }
+
+  .mega-dropdown-panel .mega-dropdown-grid--skills {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -241,6 +269,10 @@
 @media (max-width: 480px) {
   .mega-dropdown-grid,
   .mega-dropdown-grid--skills {
+    grid-template-columns: 1fr;
+  }
+
+  .mega-dropdown-panel .mega-dropdown-grid--skills {
     grid-template-columns: 1fr;
   }
 }
