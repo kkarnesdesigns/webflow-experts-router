@@ -156,6 +156,40 @@ async function getStates() {
 }
 
 /**
+ * Shuffle array using a seeded random number generator
+ * Same seed = same shuffle order (changes daily)
+ */
+function seededShuffle(array, seed) {
+  const shuffled = [...array];
+
+  // Simple seeded random function
+  const seededRandom = (s) => {
+    const x = Math.sin(s) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // Fisher-Yates shuffle with seeded random
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom(seed + i) * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled;
+}
+
+/**
+ * Get daily seed - changes once every 24 hours
+ */
+function getDailySeed() {
+  const now = new Date();
+  // Create seed from year + day of year
+  const startOfYear = new Date(now.getFullYear(), 0, 0);
+  const diff = now - startOfYear;
+  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+  return now.getFullYear() * 1000 + dayOfYear;
+}
+
+/**
  * Enrich experts with city, state, and skill names
  */
 function enrichExperts(experts, cities, states, skills) {
@@ -310,8 +344,12 @@ module.exports = async (req, res) => {
       skillId
     });
 
+    // Shuffle experts with daily seed (same order for 24 hours)
+    const dailySeed = getDailySeed();
+    const shuffledExperts = seededShuffle(filteredExperts, dailySeed);
+
     // Apply pagination
-    const paginatedExperts = filteredExperts.slice(
+    const paginatedExperts = shuffledExperts.slice(
       parseInt(offset),
       parseInt(offset) + parseInt(limit)
     );
