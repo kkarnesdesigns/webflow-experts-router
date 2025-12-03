@@ -137,83 +137,70 @@
       console.warn('Could not store route params in session storage:', e);
     }
 
-    // Store params in Wized data store if available
-    storeInWized(params);
-
-    // Trigger Wized request if Wized is available
-    triggerWizedRequest();
+    // Store params in Wized and trigger request (combined for proper sequencing)
+    storeInWizedAndTriggerRequest(params);
   }
 
   /**
-   * Store route params in Wized's data store
+   * Store route params in Wized's data store and trigger request
+   * Combined into one function to ensure proper sequencing
    */
-  function storeInWized(params) {
-    const setWizedData = () => {
-      if (window.Wized && window.Wized.data && window.Wized.data.v) {
-        // Store each param as a Wized variable
+  function storeInWizedAndTriggerRequest(params) {
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds max
+
+    const tryStoreAndTrigger = () => {
+      attempts++;
+
+      // Check if Wized is fully ready
+      const wizedReady = window.Wized &&
+                         window.Wized.data &&
+                         window.Wized.data.v &&
+                         typeof window.Wized.requests?.execute === 'function';
+
+      if (wizedReady) {
+        // Store all params
         window.Wized.data.v.routeParams = params;
         window.Wized.data.v.stateName = params.stateName || '';
         window.Wized.data.v.cityName = params.cityName || '';
         window.Wized.data.v.categoryName = params.categoryName || '';
         window.Wized.data.v.skillName = params.skillName || '';
+        window.Wized.data.v.certificationName = params.certificationName || '';
         window.Wized.data.v.stateId = params.stateId || '';
         window.Wized.data.v.cityId = params.cityId || '';
         window.Wized.data.v.categoryId = params.categoryId || '';
         window.Wized.data.v.skillId = params.skillId || '';
+        window.Wized.data.v.certificationId = params.certificationId || '';
         console.log('Stored route params in Wized data store');
+
+        // Small delay then trigger request to ensure data is set
+        setTimeout(async () => {
+          try {
+            console.log('Triggering Wized get_experts request...');
+            const result = await window.Wized.requests.execute('get_experts');
+            console.log('Wized request result:', result);
+          } catch (e) {
+            console.warn('Could not trigger Wized request:', e);
+          }
+        }, 50);
+      } else if (attempts < maxAttempts) {
+        // Keep polling
+        setTimeout(tryStoreAndTrigger, 100);
+      } else {
+        console.warn('Wized not ready after 5 seconds, giving up');
       }
     };
 
-    if (window.Wized) {
-      setWizedData();
-    } else {
-      // Wait for Wized
-      const checkWized = setInterval(() => {
-        if (window.Wized) {
-          clearInterval(checkWized);
-          setWizedData();
-        }
-      }, 100);
-      setTimeout(() => clearInterval(checkWized), 5000);
-    }
+    tryStoreAndTrigger();
   }
 
-  /**
-   * Trigger the Wized get_experts request
-   * Waits for Wized to be fully ready before executing
-   */
+  // Legacy function names for compatibility
+  function storeInWized(params) {
+    // Now handled by storeInWizedAndTriggerRequest
+  }
+
   function triggerWizedRequest() {
-    // Use Wized's built-in ready check if available
-    if (window.Wized && typeof window.Wized.requests?.execute === 'function') {
-      // Small delay to ensure Wized has loaded all request configs
-      setTimeout(executeWizedRequest, 100);
-    } else {
-      // Wait for Wized to initialize, then wait a bit more for configs
-      const checkWized = setInterval(() => {
-        if (window.Wized && typeof window.Wized.requests?.execute === 'function') {
-          clearInterval(checkWized);
-          setTimeout(executeWizedRequest, 100);
-        }
-      }, 100);
-
-      // Stop checking after 5 seconds
-      setTimeout(() => clearInterval(checkWized), 5000);
-    }
-  }
-
-  /**
-   * Execute the Wized request
-   */
-  async function executeWizedRequest() {
-    try {
-      if (window.Wized && window.Wized.requests) {
-        console.log('Triggering Wized get_experts request...');
-        const result = await window.Wized.requests.execute('get_experts');
-        console.log('Wized request result:', result);
-      }
-    } catch (e) {
-      console.warn('Could not trigger Wized request:', e);
-    }
+    // Now handled by storeInWizedAndTriggerRequest
   }
 
   /**
