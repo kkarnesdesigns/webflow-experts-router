@@ -27,6 +27,20 @@ let skillsCache = {
   ttl: 30 * 60 * 1000 // 30 minutes
 };
 
+// Cache for cities data (to look up city names)
+let citiesCache = {
+  data: null,
+  timestamp: 0,
+  ttl: 30 * 60 * 1000 // 30 minutes
+};
+
+// Cache for states data (to look up state names)
+let statesCache = {
+  data: null,
+  timestamp: 0,
+  ttl: 30 * 60 * 1000 // 30 minutes
+};
+
 /**
  * Fetch all items from a Webflow collection with pagination
  */
@@ -103,6 +117,71 @@ async function getSkills() {
   skillsCache.timestamp = now;
 
   return activeSkills;
+}
+
+/**
+ * Get all cities (with caching) - needed for city name lookups
+ */
+async function getCities() {
+  const now = Date.now();
+
+  if (citiesCache.data && (now - citiesCache.timestamp) < citiesCache.ttl) {
+    return citiesCache.data;
+  }
+
+  const cities = await fetchAllItems(process.env.WEBFLOW_CITIES_COLLECTION_ID);
+
+  citiesCache.data = cities;
+  citiesCache.timestamp = now;
+
+  return cities;
+}
+
+/**
+ * Get all states (with caching) - needed for state name lookups
+ */
+async function getStates() {
+  const now = Date.now();
+
+  if (statesCache.data && (now - statesCache.timestamp) < statesCache.ttl) {
+    return statesCache.data;
+  }
+
+  const states = await fetchAllItems(process.env.WEBFLOW_STATES_COLLECTION_ID);
+
+  statesCache.data = states;
+  statesCache.timestamp = now;
+
+  return states;
+}
+
+/**
+ * Enrich experts with city and state names
+ */
+function enrichExperts(experts, cities, states) {
+  // Build lookup maps
+  const cityMap = new Map();
+  for (const city of cities) {
+    cityMap.set(city.id, city.fieldData?.name || city.name);
+  }
+
+  const stateMap = new Map();
+  for (const state of states) {
+    stateMap.set(state.id, state.fieldData?.name || state.name);
+  }
+
+  // Add names to each expert
+  return experts.map(expert => {
+    const data = expert.fieldData || {};
+    return {
+      ...expert,
+      fieldData: {
+        ...data,
+        cityName: cityMap.get(data.city) || null,
+        stateName: stateMap.get(data.state) || null
+      }
+    };
+  });
 }
 
 /**
@@ -199,14 +278,19 @@ module.exports = async (req, res) => {
       offset = 0
     } = req.query;
 
-    // Fetch experts and skills (cached)
-    const [experts, skills] = await Promise.all([
+    // Fetch experts, skills, cities, and states (cached)
+    const [experts, skills, cities, states] = await Promise.all([
       getExperts(),
-      categoryId ? getSkills() : Promise.resolve([]) // Only fetch skills if filtering by category
+      categoryId ? getSkills() : Promise.resolve([]), // Only fetch skills if filtering by category
+      getCities(),
+      getStates()
     ]);
 
+    // Enrich experts with city and state names
+    const enrichedExperts = enrichExperts(experts, cities, states);
+
     // Apply filters
-    const filteredExperts = filterExperts(experts, skills, {
+    const filteredExperts = filterExperts(enrichedExperts, skills, {
       stateId,
       cityId,
       categoryId,
