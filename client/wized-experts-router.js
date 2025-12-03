@@ -143,37 +143,36 @@
 
   /**
    * Trigger the Wized get_experts request
-   * Waits for Wized to be ready if not already initialized
+   * Waits for Wized to be fully ready before executing
    */
   function triggerWizedRequest() {
-    // Check if Wized is available
-    if (window.Wized) {
-      // Wized is ready, execute the request
-      executeWizedRequest();
+    // Use Wized's built-in ready check if available
+    if (window.Wized && typeof window.Wized.requests?.execute === 'function') {
+      // Small delay to ensure Wized has loaded all request configs
+      setTimeout(executeWizedRequest, 100);
     } else {
-      // Wait for Wized to initialize
-      window.addEventListener('wized:ready', executeWizedRequest, { once: true });
-
-      // Also try after a short delay as a fallback
-      setTimeout(() => {
-        if (window.Wized) {
-          executeWizedRequest();
+      // Wait for Wized to initialize, then wait a bit more for configs
+      const checkWized = setInterval(() => {
+        if (window.Wized && typeof window.Wized.requests?.execute === 'function') {
+          clearInterval(checkWized);
+          setTimeout(executeWizedRequest, 100);
         }
-      }, 1000);
+      }, 100);
+
+      // Stop checking after 5 seconds
+      setTimeout(() => clearInterval(checkWized), 5000);
     }
   }
 
   /**
    * Execute the Wized request
    */
-  function executeWizedRequest() {
+  async function executeWizedRequest() {
     try {
       if (window.Wized && window.Wized.requests) {
         console.log('Triggering Wized get_experts request...');
-        window.Wized.requests.execute('get_experts');
-      } else if (window.Wized && window.Wized.data && window.Wized.data.r) {
-        // Alternative Wized API structure
-        console.log('Wized available but requests API not found, trying alternative...');
+        const result = await window.Wized.requests.execute('get_experts');
+        console.log('Wized request result:', result);
       }
     } catch (e) {
       console.warn('Could not trigger Wized request:', e);
