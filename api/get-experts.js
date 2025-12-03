@@ -156,9 +156,9 @@ async function getStates() {
 }
 
 /**
- * Enrich experts with city and state names
+ * Enrich experts with city, state, and skill names
  */
-function enrichExperts(experts, cities, states) {
+function enrichExperts(experts, cities, states, skills) {
   // Build lookup maps
   const cityMap = new Map();
   for (const city of cities) {
@@ -170,15 +170,28 @@ function enrichExperts(experts, cities, states) {
     stateMap.set(state.id, state.fieldData?.name || state.name);
   }
 
+  const skillMap = new Map();
+  for (const skill of skills) {
+    skillMap.set(skill.id, skill.fieldData?.name || skill.name);
+  }
+
   // Add names to each expert
   return experts.map(expert => {
     const data = expert.fieldData || {};
+
+    // Get skill names from skill IDs
+    const skillIds = data['skills-2'] || [];
+    const skillNames = skillIds
+      .map(id => skillMap.get(id))
+      .filter(name => name); // Remove any undefined names
+
     return {
       ...expert,
       fieldData: {
         ...data,
         cityName: cityMap.get(data.city) || null,
-        stateName: stateMap.get(data.state) || null
+        stateName: stateMap.get(data.state) || null,
+        skillNames: skillNames // Array of all skill names
       }
     };
   });
@@ -281,13 +294,13 @@ module.exports = async (req, res) => {
     // Fetch experts, skills, cities, and states (cached)
     const [experts, skills, cities, states] = await Promise.all([
       getExperts(),
-      categoryId ? getSkills() : Promise.resolve([]), // Only fetch skills if filtering by category
+      getSkills(), // Always fetch skills for name enrichment
       getCities(),
       getStates()
     ]);
 
-    // Enrich experts with city and state names
-    const enrichedExperts = enrichExperts(experts, cities, states);
+    // Enrich experts with city, state, and skill names
+    const enrichedExperts = enrichExperts(experts, cities, states, skills);
 
     // Apply filters
     const filteredExperts = filterExperts(enrichedExperts, skills, {
