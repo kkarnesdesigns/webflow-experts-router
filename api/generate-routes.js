@@ -38,6 +38,7 @@ module.exports = async (req, res) => {
       statesCollectionId: process.env.WEBFLOW_STATES_COLLECTION_ID,
       skillsCollectionId: process.env.WEBFLOW_SKILLS_COLLECTION_ID,
       categoriesCollectionId: process.env.WEBFLOW_CATEGORIES_COLLECTION_ID,
+      certificationsCollectionId: process.env.WEBFLOW_CERTIFICATIONS_COLLECTION_ID,
       baseURL: process.env.SITE_BASE_URL || 'https://yourdomain.com',
       basePath: process.env.EXPERTS_BASE_PATH || '/experts'
     };
@@ -118,6 +119,7 @@ function generateDropdownMenu(allRoutes) {
   const citiesMap = new Map();
   const categoriesMap = new Map();
   const skillsMap = new Map();
+  const certificationsMap = new Map();
 
   for (const route of allRoutes) {
     const params = route.params;
@@ -180,6 +182,22 @@ function generateDropdownMenu(allRoutes) {
         existing.totalExperts += params.expertCount || 0;
       }
     }
+
+    // Collect certifications from state-level certification routes
+    if (route.type === 'state-certification' && params.certificationId) {
+      const existing = certificationsMap.get(params.certificationId);
+      if (!existing) {
+        certificationsMap.set(params.certificationId, {
+          name: params.certificationName,
+          slug: params.certification,
+          category: params.categoryName,
+          categorySlug: params.category,
+          totalExperts: params.expertCount || 0
+        });
+      } else {
+        existing.totalExperts += params.expertCount || 0;
+      }
+    }
   }
 
   // Convert to arrays and sort
@@ -201,11 +219,17 @@ function generateDropdownMenu(allRoutes) {
     .sort((a, b) => b.totalExperts - a.totalExperts)
     .slice(0, 10);
 
+  const popularCertifications = Array.from(certificationsMap.values())
+    .filter(c => c.totalExperts > 0)
+    .sort((a, b) => b.totalExperts - a.totalExperts)
+    .slice(0, 10);
+
   return {
     states,
     cities,
     categories,
     popularSkills,
+    popularCertifications,
     generated: new Date().toISOString()
   };
 }

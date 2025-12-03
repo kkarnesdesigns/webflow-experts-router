@@ -1,12 +1,13 @@
 /**
  * Vercel Serverless Function: Get Experts with Filtering
- * Proxies requests to Webflow CMS and filters by state, city, category, skill
+ * Proxies requests to Webflow CMS and filters by state, city, category, skill, certification
  *
  * Query Parameters:
  * - stateId: Filter by state ID
  * - cityId: Filter by city ID
  * - categoryId: Filter by category ID (checks expert's skills' categories)
  * - skillId: Filter by skill ID
+ * - certificationId: Filter by certification ID
  * - limit: Max results to return (default: 100)
  * - offset: Pagination offset (default: 0)
  */
@@ -36,6 +37,13 @@ let citiesCache = {
 
 // Cache for states data (to look up state names)
 let statesCache = {
+  data: null,
+  timestamp: 0,
+  ttl: 30 * 60 * 1000 // 30 minutes
+};
+
+// Cache for certifications data (to look up certification -> category mapping)
+let certificationsCache = {
   data: null,
   timestamp: 0,
   ttl: 30 * 60 * 1000 // 30 minutes
@@ -156,6 +164,27 @@ async function getStates() {
 }
 
 /**
+ * Get all certifications (with caching) - needed for certification name and category lookups
+ */
+async function getCertifications() {
+  const now = Date.now();
+
+  if (certificationsCache.data && (now - certificationsCache.timestamp) < certificationsCache.ttl) {
+    return certificationsCache.data;
+  }
+
+  const certifications = await fetchAllItems(process.env.WEBFLOW_CERTIFICATIONS_COLLECTION_ID);
+
+  // Filter out archived certifications
+  const activeCertifications = certifications.filter(c => !c.isArchived && !c.fieldData?.isArchived);
+
+  certificationsCache.data = activeCertifications;
+  certificationsCache.timestamp = now;
+
+  return activeCertifications;
+}
+
+/**
  * Shuffle array using a seeded random number generator
  * Same seed = same shuffle order (changes daily)
  */
@@ -190,9 +219,9 @@ function getDailySeed() {
 }
 
 /**
- * Enrich experts with city, state, and skill names
+ * Enrich experts with city, state, skill, and certification names
  */
-function enrichExperts(experts, cities, states, skills) {
+function enrichExperts(experts, cities, states, skills, certifications) {
   // Build lookup maps
   const cityMap = new Map();
   for (const city of cities) {
@@ -209,6 +238,11 @@ function enrichExperts(experts, cities, states, skills) {
     skillMap.set(skill.id, skill.fieldData?.name || skill.name);
   }
 
+  const certificationMap = new Map();
+  for (const cert of certifications) {
+    certificationMap.set(cert.id, cert.fieldData?.name || cert.name);
+  }
+
   // Add names to each expert
   return experts.map(expert => {
     const data = expert.fieldData || {};
@@ -219,13 +253,20 @@ function enrichExperts(experts, cities, states, skills) {
       .map(id => skillMap.get(id))
       .filter(name => name); // Remove any undefined names
 
+    // Get certification names from certification IDs
+    const certIds = data.certifications || [];
+    const certificationNames = certIds
+      .map(id => certificationMap.get(id))
+      .filter(name => name); // Remove any undefined names
+
     return {
       ...expert,
       fieldData: {
         ...data,
         cityName: cityMap.get(data.city) || null,
         stateName: stateMap.get(data.state) || null,
-        skillNames: skillNames // Array of all skill names
+        skillNames: skillNames, // Array of all skill names
+        certificationNames: certificationNames // Array of all certification names
       }
     };
   });
@@ -234,21 +275,12 @@ function enrichExperts(experts, cities, states, skills) {
 /**
  * Filter experts based on query parameters
  */
-function filterExperts(experts, skills, filters) {
-  const { stateId, cityId, categoryId, skillId } = filters;
+function filterExperts(experts, skills, certifications, filters) {
+  const { stateId, cityId, categoryId, skillId, certificationId } = filters;
 
   // If no filters provided, return all experts
-  if (!stateId && !cityId && !categoryId && !skillId) {
+  if (!stateId && !cityId && !categoryId && !skillId && !certificationId) {
     return experts;
-  }
-
-  // Build a map of skillId -> categoryIds for category filtering
-  const skillCategoryMap = new Map();
-  if (categoryId) {
-    for (const skill of skills) {
-      const skillCategories = skill.fieldData?.['expert-category'] || [];
-      skillCategoryMap.set(skill.id, skillCategories);
-    }
   }
 
   // Get all skills that belong to the target category
@@ -258,6 +290,17 @@ function filterExperts(experts, skills, filters) {
       const skillCategories = skill.fieldData?.['expert-category'] || [];
       if (skillCategories.includes(categoryId)) {
         skillsInCategory.add(skill.id);
+      }
+    }
+  }
+
+  // Get all certifications that belong to the target category
+  const certificationsInCategory = new Set();
+  if (categoryId) {
+    for (const cert of certifications) {
+      const certCategories = cert.fieldData?.category || [];
+      if (certCategories.includes(categoryId)) {
+        certificationsInCategory.add(cert.id);
       }
     }
   }
@@ -283,11 +326,21 @@ function filterExperts(experts, skills, filters) {
       }
     }
 
-    // Filter by category (expert must have at least one skill in this category)
-    if (categoryId) {
+    // Filter by certification
+    if (certificationId) {
+      const expertCerts = data.certifications || [];
+      if (!expertCerts.includes(certificationId)) {
+        return false;
+      }
+    }
+
+    // Filter by category (expert must have at least one skill OR certification in this category)
+    if (categoryId && !skillId && !certificationId) {
       const expertSkills = data['skills-2'] || [];
+      const expertCerts = data.certifications || [];
       const hasSkillInCategory = expertSkills.some(sid => skillsInCategory.has(sid));
-      if (!hasSkillInCategory) {
+      const hasCertInCategory = expertCerts.some(cid => certificationsInCategory.has(cid));
+      if (!hasSkillInCategory && !hasCertInCategory) {
         return false;
       }
     }
@@ -321,27 +374,30 @@ module.exports = async (req, res) => {
       cityId,
       categoryId,
       skillId,
+      certificationId,
       limit = 100,
       offset = 0
     } = req.query;
 
-    // Fetch experts, skills, cities, and states (cached)
-    const [experts, skills, cities, states] = await Promise.all([
+    // Fetch experts, skills, cities, states, and certifications (cached)
+    const [experts, skills, cities, states, certifications] = await Promise.all([
       getExperts(),
       getSkills(), // Always fetch skills for name enrichment
       getCities(),
-      getStates()
+      getStates(),
+      getCertifications()
     ]);
 
-    // Enrich experts with city, state, and skill names
-    const enrichedExperts = enrichExperts(experts, cities, states, skills);
+    // Enrich experts with city, state, skill, and certification names
+    const enrichedExperts = enrichExperts(experts, cities, states, skills, certifications);
 
     // Apply filters
-    const filteredExperts = filterExperts(enrichedExperts, skills, {
+    const filteredExperts = filterExperts(enrichedExperts, skills, certifications, {
       stateId,
       cityId,
       categoryId,
-      skillId
+      skillId,
+      certificationId
     });
 
     // Shuffle experts with daily seed (same order for 24 hours)
@@ -363,7 +419,8 @@ module.exports = async (req, res) => {
         stateId: stateId || null,
         cityId: cityId || null,
         categoryId: categoryId || null,
-        skillId: skillId || null
+        skillId: skillId || null,
+        certificationId: certificationId || null
       },
       pagination: {
         limit: parseInt(limit),

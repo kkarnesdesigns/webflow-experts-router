@@ -2,8 +2,8 @@
   Find Experts Mega Dropdown - Interactive Filter Menu
 
   Step 1: Select a Category
-  Step 2: Select a Skill (filtered by category)
-  Step 3: Select a Location (states/cities with experts in that skill)
+  Step 2: Select a Skill or Certification (filtered by category)
+  Step 3: Select a Location (states/cities with experts in that skill/certification)
   → Navigates to the final page
 -->
 
@@ -21,6 +21,7 @@
   let manifestData = null;
   let selectedCategory = null;
   let selectedSkill = null;
+  let selectedCertification = null;
 
   async function loadDropdownData() {
     try {
@@ -45,6 +46,7 @@
   function renderStep1() {
     selectedCategory = null;
     selectedSkill = null;
+    selectedCertification = null;
 
     container.innerHTML = `
       <div class="mega-dropdown-step">
@@ -74,13 +76,15 @@
     });
   }
 
-  // Step 2: Select Skill OR Location (skill is optional)
+  // Step 2: Select Skill/Certification OR Location (skill/cert is optional)
   function renderStep2() {
-    // Find skills for this category from manifest
+    // Find skills and certifications for this category from manifest
     const skillsInCategory = [];
     const skillSlugs = new Set();
+    const certificationsInCategory = [];
+    const certSlugs = new Set();
 
-    // Find locations (states/cities) for this category (without skill filter)
+    // Find locations (states/cities) for this category (without skill/cert filter)
     const statesMap = new Map();
     const citiesMap = new Map();
 
@@ -96,8 +100,18 @@
           });
         }
 
-        // Collect state-level routes for this category (no skill filter)
-        if (params.stateId && !params.skillId && !params.cityId) {
+        // Collect certifications
+        if (params.certificationId && !certSlugs.has(params.certification)) {
+          certSlugs.add(params.certification);
+          certificationsInCategory.push({
+            slug: params.certification,
+            name: params.certificationName,
+            expertCount: params.expertCount || 0
+          });
+        }
+
+        // Collect state-level routes for this category (no skill/cert filter)
+        if (params.stateId && !params.skillId && !params.certificationId && !params.cityId) {
           if (!statesMap.has(params.stateId)) {
             statesMap.set(params.stateId, {
               path: path,
@@ -108,8 +122,8 @@
           }
         }
 
-        // Collect city-level routes for this category (no skill filter)
-        if (params.cityId && !params.skillId) {
+        // Collect city-level routes for this category (no skill/cert filter)
+        if (params.cityId && !params.skillId && !params.certificationId) {
           if (!citiesMap.has(params.cityId)) {
             citiesMap.set(params.cityId, {
               path: path,
@@ -123,11 +137,39 @@
       }
     }
 
-    // Sort skills by expert count
+    // Sort by expert count
     skillsInCategory.sort((a, b) => b.expertCount - a.expertCount);
+    certificationsInCategory.sort((a, b) => b.expertCount - a.expertCount);
 
     const states = Array.from(statesMap.values()).sort((a, b) => b.expertCount - a.expertCount);
     const cities = Array.from(citiesMap.values()).sort((a, b) => b.expertCount - a.expertCount).slice(0, 8);
+
+    // Build skills/certifications section
+    let skillsCertsHtml = '';
+    if (skillsInCategory.length > 0) {
+      skillsCertsHtml += `
+        <div class="mega-dropdown-subtitle">Filter by Skill (optional)</div>
+        <div class="mega-dropdown-grid mega-dropdown-grid--skills">
+          ${skillsInCategory.map(s => `
+            <button class="mega-dropdown-option" data-skill="${s.slug}" data-name="${s.name}">
+              <span class="mega-dropdown-option-name">${s.name}</span>
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
+    if (certificationsInCategory.length > 0) {
+      skillsCertsHtml += `
+        <div class="mega-dropdown-subtitle" style="margin-top: 16px;">Filter by Certification (optional)</div>
+        <div class="mega-dropdown-grid mega-dropdown-grid--skills">
+          ${certificationsInCategory.map(c => `
+            <button class="mega-dropdown-option" data-certification="${c.slug}" data-name="${c.name}">
+              <span class="mega-dropdown-option-name">${c.name}</span>
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
 
     container.innerHTML = `
       <div class="mega-dropdown-step">
@@ -139,14 +181,7 @@
         </div>
         <div class="mega-dropdown-two-panel">
           <div class="mega-dropdown-panel mega-dropdown-panel--skills">
-            <div class="mega-dropdown-subtitle">Filter by Skill (optional)</div>
-            <div class="mega-dropdown-grid mega-dropdown-grid--skills">
-              ${skillsInCategory.map(s => `
-                <button class="mega-dropdown-option" data-skill="${s.slug}" data-name="${s.name}">
-                  <span class="mega-dropdown-option-name">${s.name}</span>
-                </button>
-              `).join('')}
-            </div>
+            ${skillsCertsHtml}
           </div>
           <div class="mega-dropdown-panel mega-dropdown-panel--locations">
             <div class="mega-dropdown-subtitle">Or Browse by Location</div>
@@ -189,19 +224,42 @@
           slug: btn.dataset.skill,
           name: btn.dataset.name
         };
+        selectedCertification = null;
+        renderStep3();
+      });
+    });
+
+    // Certification click handlers - goes to Step 3 with certification+location
+    container.querySelectorAll('[data-certification]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedCertification = {
+          slug: btn.dataset.certification,
+          name: btn.dataset.name
+        };
+        selectedSkill = null;
         renderStep3();
       });
     });
   }
 
-  // Step 3: Select Location (states/cities with this category+skill combo)
+  // Step 3: Select Location (states/cities with this category+skill/certification combo)
   function renderStep3() {
-    // Find locations for this category+skill from manifest
+    // Find locations for this category+skill or category+certification from manifest
     const statesMap = new Map();
     const citiesMap = new Map();
 
+    // Determine what we're filtering by
+    const filterName = selectedSkill ? selectedSkill.name : selectedCertification.name;
+    const filterSlug = selectedSkill ? selectedSkill.slug : selectedCertification.slug;
+    const filterType = selectedSkill ? 'skill' : 'certification';
+
     for (const [path, params] of Object.entries(manifestData.routes)) {
-      if (params.category === selectedCategory.slug && params.skill === selectedSkill.slug) {
+      // Match based on whether we're filtering by skill or certification
+      const matchesFilter = selectedSkill
+        ? (params.category === selectedCategory.slug && params.skill === selectedSkill.slug)
+        : (params.category === selectedCategory.slug && params.certification === selectedCertification.slug);
+
+      if (matchesFilter) {
         // State-level route
         if (params.stateId && !params.cityId) {
           if (!statesMap.has(params.stateId)) {
@@ -237,7 +295,7 @@
           <button class="mega-dropdown-back" id="back-to-step2">← Back</button>
           <div class="mega-dropdown-step-number">3</div>
           <div class="mega-dropdown-step-title">Select a Location</div>
-          <div class="mega-dropdown-step-context">${selectedSkill.name} in ${selectedCategory.name}</div>
+          <div class="mega-dropdown-step-context">${filterName} in ${selectedCategory.name}</div>
         </div>
         <div class="mega-dropdown-locations">
           <div class="mega-dropdown-locations-col">

@@ -13,6 +13,7 @@ function generateDropdownFromManifest(manifest) {
   const citiesMap = new Map();
   const categoriesMap = new Map();
   const skillsMap = new Map();
+  const certificationsMap = new Map();
 
   for (const [path, params] of Object.entries(manifest.routes)) {
     // Determine route type from path structure
@@ -77,6 +78,22 @@ function generateDropdownFromManifest(manifest) {
         existing.totalExperts += params.expertCount || 0;
       }
     }
+
+    // Collect certifications (4 segments: /hire/state/category/certification with certificationId but no cityId)
+    if (segmentCount === 4 && params.certificationId && !params.cityId) {
+      const existing = certificationsMap.get(params.certificationId);
+      if (!existing) {
+        certificationsMap.set(params.certificationId, {
+          name: params.certificationName,
+          slug: params.certification,
+          category: params.categoryName,
+          categorySlug: params.category,
+          totalExperts: params.expertCount || 0
+        });
+      } else {
+        existing.totalExperts += params.expertCount || 0;
+      }
+    }
   }
 
   // Convert to arrays and sort
@@ -98,11 +115,17 @@ function generateDropdownFromManifest(manifest) {
     .sort((a, b) => b.totalExperts - a.totalExperts)
     .slice(0, 10);
 
+  const popularCertifications = Array.from(certificationsMap.values())
+    .filter(c => c.totalExperts > 0)
+    .sort((a, b) => b.totalExperts - a.totalExperts)
+    .slice(0, 10);
+
   return {
     states,
     cities,
     categories,
     popularSkills,
+    popularCertifications,
     generated: manifest.generated
   };
 }
