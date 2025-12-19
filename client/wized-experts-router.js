@@ -13,6 +13,8 @@
    * Parse the current URL path and extract route parameters
    *
    * Supported patterns:
+   * - /hire/{category} (2 segments) - category index (no location)
+   * - /hire/{category}/{skill} (3 segments) - skill/cert index (no location)
    * - /hire/{state}/{category} (3 segments) - state + category (validated against manifest)
    * - /hire/{state}/{city} (3 segments) - state + city (validated against manifest)
    * - /hire/{state}/{city}/{category} (4 segments) - state + city + category
@@ -30,13 +32,18 @@
       return null;
     }
 
-    // 3-segment routes: could be state/category OR state/city
-    // Pattern: ['hire', state, category-or-city] - 3 segments
+    // 2-segment routes: /hire/{category} - handled by Webflow directly, not this router
+    if (segments.length === 2) {
+      return null;
+    }
+
+    // 3-segment routes: could be state/category, state/city, OR category/skill (index)
+    // Pattern: ['hire', X, Y] - 3 segments
     // We'll let the manifest validation determine which type it is
     if (segments.length === 3) {
       return {
         type: 'ambiguous-3', // Will be resolved by manifest lookup
-        state: segments[1].toLowerCase(),
+        segment1: segments[1].toLowerCase(),
         segment2: segments[2].toLowerCase()
       };
     }
@@ -268,7 +275,17 @@
     const stateName = params.stateName || params.state;
     const cityName = params.cityName || params.city;
 
+    const certificationName = params.certificationName || params.certification;
+
     switch (params.type) {
+      case 'skill-index':
+        title = `${skillName} Experts`;
+        description = `Find qualified ${skillName} experts. Browse profiles and connect with professionals.`;
+        break;
+      case 'certification-index':
+        title = `${certificationName} Certified Experts`;
+        description = `Find ${certificationName} certified experts. Browse profiles and connect with professionals.`;
+        break;
       case 'state-category':
         title = `${categoryName} Experts in ${stateName}`;
         description = `Find qualified ${categoryName} experts in ${stateName}. Browse profiles and connect with professionals.`;
@@ -285,9 +302,17 @@
         title = `${skillName} Experts in ${stateName}`;
         description = `Find qualified ${skillName} experts in ${stateName}. Browse profiles and connect with professionals.`;
         break;
+      case 'state-certification':
+        title = `${certificationName} Certified Experts in ${stateName}`;
+        description = `Find ${certificationName} certified experts in ${stateName}. Browse profiles and connect with professionals.`;
+        break;
       case 'city':
         title = `${skillName} Experts in ${cityName}, ${stateName}`;
         description = `Find qualified ${skillName} experts in ${cityName}, ${stateName}. Browse profiles and connect with professionals.`;
+        break;
+      case 'city-certification':
+        title = `${certificationName} Certified Experts in ${cityName}, ${stateName}`;
+        description = `Find ${certificationName} certified experts in ${cityName}, ${stateName}. Browse profiles and connect with professionals.`;
         break;
       default:
         title = 'Find Experts';
