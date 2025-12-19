@@ -70,6 +70,12 @@ module.exports = async (req, res) => {
     // Fetch all CMS data
     const data = await webflow.fetchAllData(config);
 
+    // Debug: Log category slugs from Webflow
+    console.log('Categories from Webflow:');
+    data.categories.forEach(cat => {
+      console.log(`  - ${cat.fieldData?.name}: slug="${cat.slug || cat.fieldData?.slug}" (id: ${cat.id})`);
+    });
+
     // Generate routes
     const { allRoutes, stats } = RouteGenerator.generateAllRoutes(data, config.basePath);
 
