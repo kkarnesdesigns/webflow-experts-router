@@ -26,7 +26,7 @@ const CONFIG = {
   manifestApiUrl: 'https://webflow-experts-router.vercel.app/api/route-manifest',
 
   // Cache duration for manifest (in seconds)
-  manifestCacheDuration: 3600, // 1 hour
+  manifestCacheDuration: 300, // 5 minutes
 };
 
 // In-memory cache for the manifest
