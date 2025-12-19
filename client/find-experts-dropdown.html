@@ -144,6 +144,9 @@
     const states = Array.from(statesMap.values()).sort((a, b) => b.expertCount - a.expertCount);
     const cities = Array.from(citiesMap.values()).sort((a, b) => b.expertCount - a.expertCount).slice(0, 8);
 
+    // Category index page path
+    const categoryIndexPath = `/hire/${selectedCategory.slug}`;
+
     container.innerHTML = `
       <div class="mega-dropdown-step">
         <div class="mega-dropdown-step-header">
@@ -151,6 +154,11 @@
           <div class="mega-dropdown-step-number">2</div>
           <div class="mega-dropdown-step-title">Narrow Your Search</div>
           <div class="mega-dropdown-step-context">${selectedCategory.name}</div>
+        </div>
+        <div class="mega-dropdown-index-link">
+          <a href="${categoryIndexPath}" class="mega-dropdown-view-all">
+            View All ${selectedCategory.name} Experts →
+          </a>
         </div>
         <div class="mega-dropdown-four-panel">
           ${skillsInCategory.length > 0 ? `
@@ -278,6 +286,9 @@
     const states = Array.from(statesMap.values()).sort((a, b) => b.expertCount - a.expertCount);
     const cities = Array.from(citiesMap.values()).sort((a, b) => b.expertCount - a.expertCount).slice(0, 12);
 
+    // Index page path for skill or certification (no location)
+    const indexPath = `/hire/${selectedCategory.slug}/${filterSlug}`;
+
     container.innerHTML = `
       <div class="mega-dropdown-step">
         <div class="mega-dropdown-step-header">
@@ -285,6 +296,11 @@
           <div class="mega-dropdown-step-number">3</div>
           <div class="mega-dropdown-step-title">Select a Location</div>
           <div class="mega-dropdown-step-context">${filterName} in ${selectedCategory.name}</div>
+        </div>
+        <div class="mega-dropdown-index-link">
+          <a href="${indexPath}" class="mega-dropdown-view-all">
+            View All ${filterName} Experts →
+          </a>
         </div>
         <div class="mega-dropdown-locations">
           <div class="mega-dropdown-locations-col">

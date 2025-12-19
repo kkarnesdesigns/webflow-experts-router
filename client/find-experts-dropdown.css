@@ -70,6 +70,30 @@
   color: #1f2937;
 }
 
+/* Index page link (View All) */
+.mega-dropdown-index-link {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+}
+
+.mega-dropdown-view-all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #3730a3;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.mega-dropdown-view-all:hover {
+  color: #1e1b4b;
+}
+
 /* Options grid for categories/skills */
 .mega-dropdown-grid {
   display: grid;

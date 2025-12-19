@@ -63,8 +63,8 @@ function generateDropdownFromManifest(manifest) {
       }
     }
 
-    // Collect skills (4 segments: /hire/state/category/skill with skillId but no cityId)
-    if (segmentCount === 4 && params.skillId && !params.cityId) {
+    // Collect skill index routes (3 segments: /hire/category/skill - no state)
+    if (segmentCount === 3 && params.skillId && !params.stateId && !params.cityId) {
       const existing = skillsMap.get(params.skillId);
       if (!existing) {
         skillsMap.set(params.skillId, {
@@ -72,6 +72,24 @@ function generateDropdownFromManifest(manifest) {
           slug: params.skill,
           category: params.categoryName,
           categorySlug: params.category,
+          indexPath: `/hire/${params.category}/${params.skill}`,
+          totalExperts: params.expertCount || 0
+        });
+      } else {
+        existing.totalExperts = Math.max(existing.totalExperts, params.expertCount || 0);
+      }
+    }
+
+    // Collect skills from state routes (4 segments: /hire/state/category/skill with skillId but no cityId)
+    if (segmentCount === 4 && params.skillId && !params.cityId && params.stateId) {
+      const existing = skillsMap.get(params.skillId);
+      if (!existing) {
+        skillsMap.set(params.skillId, {
+          name: params.skillName,
+          slug: params.skill,
+          category: params.categoryName,
+          categorySlug: params.category,
+          indexPath: `/hire/${params.category}/${params.skill}`,
           totalExperts: params.expertCount || 0
         });
       } else {
@@ -79,8 +97,8 @@ function generateDropdownFromManifest(manifest) {
       }
     }
 
-    // Collect certifications (4 segments: /hire/state/category/certification with certificationId but no cityId)
-    if (segmentCount === 4 && params.certificationId && !params.cityId) {
+    // Collect certification index routes (3 segments: /hire/category/certification - no state)
+    if (segmentCount === 3 && params.certificationId && !params.stateId && !params.cityId) {
       const existing = certificationsMap.get(params.certificationId);
       if (!existing) {
         certificationsMap.set(params.certificationId, {
@@ -88,6 +106,24 @@ function generateDropdownFromManifest(manifest) {
           slug: params.certification,
           category: params.categoryName,
           categorySlug: params.category,
+          indexPath: `/hire/${params.category}/${params.certification}`,
+          totalExperts: params.expertCount || 0
+        });
+      } else {
+        existing.totalExperts = Math.max(existing.totalExperts, params.expertCount || 0);
+      }
+    }
+
+    // Collect certifications from state routes (4 segments: /hire/state/category/certification with certificationId but no cityId)
+    if (segmentCount === 4 && params.certificationId && !params.cityId && params.stateId) {
+      const existing = certificationsMap.get(params.certificationId);
+      if (!existing) {
+        certificationsMap.set(params.certificationId, {
+          name: params.certificationName,
+          slug: params.certification,
+          category: params.categoryName,
+          categorySlug: params.category,
+          indexPath: `/hire/${params.category}/${params.certification}`,
           totalExperts: params.expertCount || 0
         });
       } else {
