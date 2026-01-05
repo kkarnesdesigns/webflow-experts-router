@@ -29,7 +29,7 @@ const CONFIG = {
   templatePagePath: '/hire-template', // Change to your actual template page path
 
   // Vercel API URL for route manifest
-  manifestApiUrl: 'https://webflow-experts-router.vercel.app/api/route-manifest',
+  manifestApiUrl: 'https://seo.joingyde.com/api/route-manifest',
 
   // Cache duration for manifest (in seconds)
   manifestCacheDuration: 3600, // 1 hour
@@ -182,7 +182,7 @@ To change cache duration, update `manifestCacheDuration` in the config.
 - Or reduce `manifestCacheDuration`
 
 ### 404 errors on valid routes
-- Check that the manifest API is accessible: `curl https://webflow-experts-router.vercel.app/api/route-manifest`
+- Check that the manifest API is accessible: `curl https://seo.joingyde.com/api/route-manifest`
 - Verify routes exist in the manifest
 - Check worker logs for manifest fetch errors
 

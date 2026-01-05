@@ -189,7 +189,7 @@ module.exports = async (req, res) => {
 
       if (!manifest) {
         // Fetch manifest from the manifest API as fallback
-        const manifestResponse = await fetch('https://webflow-experts-router.vercel.app/api/route-manifest');
+        const manifestResponse = await fetch('https://seo.joingyde.com/api/route-manifest');
         if (!manifestResponse.ok) {
           res.status(503).json({
             error: 'Route manifest not available',

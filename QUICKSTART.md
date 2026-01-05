@@ -40,7 +40,7 @@ npm install -g vercel  # If not already installed
 vercel --prod
 ```
 
-Copy your deployment URL: `https://webflow-experts-router.vercel.app`
+Copy your deployment URL: `https://seo.joingyde.com`
 
 ## Step 4: Add to Vercel Environment Variables (2 min)
 
@@ -69,7 +69,7 @@ Copy your deployment URL: `https://webflow-experts-router.vercel.app`
 
 // Or load from Vercel:
 </script>
-<script src="https://webflow-experts-router.vercel.app/client/wized-experts-router.js"></script>
+<script src="https://seo.joingyde.com/client/wized-experts-router.js"></script>
 ```
 
 ### C. Set Up Wized Variables

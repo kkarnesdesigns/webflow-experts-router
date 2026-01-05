@@ -10,7 +10,7 @@ This guide explains how to integrate the Experts Router with your Wized setup in
 4. Add the following in the **Before `</body>` tag** section:
 
 ```html
-<script src="https://webflow-experts-router.vercel.app/client/wized-experts-router.js"></script>
+<script src="https://seo.joingyde.com/client/wized-experts-router.js"></script>
 ```
 
 Or copy the contents of `wized-experts-router.js` and paste directly into the custom code section.

@@ -80,7 +80,7 @@
    */
   async function fetchRouteManifest() {
     try {
-      const manifestUrl = 'https://webflow-experts-router.vercel.app/api/route-manifest';
+      const manifestUrl = 'https://seo.joingyde.com/api/route-manifest';
       const response = await fetch(manifestUrl);
 
       if (!response.ok) {

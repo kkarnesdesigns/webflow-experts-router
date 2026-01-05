@@ -134,10 +134,10 @@ vercel --prod
 ```
 
 After deployment, Vercel will provide URLs like:
-- Main: `https://webflow-experts-router.vercel.app`
-- Generate Routes: `https://webflow-experts-router.vercel.app/api/generate-routes`
-- Route Manifest: `https://webflow-experts-router.vercel.app/api/route-manifest`
-- Sitemap: `https://webflow-experts-router.vercel.app/api/sitemap.xml`
+- Main: `https://seo.joingyde.com`
+- Generate Routes: `https://seo.joingyde.com/api/generate-routes`
+- Route Manifest: `https://seo.joingyde.com/api/route-manifest`
+- Sitemap: `https://seo.joingyde.com/api/sitemap.xml`
 
 ### 5. Set Environment Variables in Vercel
 
@@ -160,7 +160,7 @@ In Vercel Dashboard:
 3. **Add Router Script** to Page Settings → Custom Code → Before `</body>`:
 
 ```html
-<script src="https://webflow-experts-router.vercel.app/client/wized-experts-router.js"></script>
+<script src="https://seo.joingyde.com/client/wized-experts-router.js"></script>
 ```
 
 Or copy the entire contents of `client/wized-experts-router.js` directly.
@@ -390,7 +390,7 @@ console.log(sessionStorage.getItem('expertsRouteParams'));
 Routes auto-regenerate daily at 2 AM. To force immediate update:
 
 ```bash
-curl https://webflow-experts-router.vercel.app/api/generate-routes?force=true
+curl https://seo.joingyde.com/api/generate-routes?force=true
 ```
 
 Or visit the URL in your browser.

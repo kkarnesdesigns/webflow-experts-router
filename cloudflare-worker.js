@@ -23,7 +23,7 @@ const CONFIG = {
   templatePagePath: '/hire-template', // Change this to wherever your template page lives
 
   // Vercel API URL for route manifest
-  manifestApiUrl: 'https://webflow-experts-router.vercel.app/api/route-manifest',
+  manifestApiUrl: 'https://seo.joingyde.com/api/route-manifest',
 
   // Cache duration for manifest (in seconds)
   manifestCacheDuration: 300, // 5 minutes

@@ -288,7 +288,7 @@ WEBFLOW_CERTIFICATIONS_COLLECTION_ID=650b358b2ae0fe324b126a7f
 
 - **Platform:** Vercel
 - **Repo:** https://github.com/kkarnesdesigns/webflow-experts-router
-- **Production URL:** https://webflow-experts-router.vercel.app
+- **Production URL:** https://seo.joingyde.com
 
 ### After Adding New Features
 
