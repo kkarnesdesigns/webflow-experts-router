@@ -97,8 +97,12 @@ async function getExperts() {
 
   const experts = await fetchAllItems(process.env.WEBFLOW_EXPERTS_COLLECTION_ID);
 
-  // Filter out archived experts
-  const activeExperts = experts.filter(e => !e.isArchived && !e.fieldData?.isArchived);
+  // Filter out archived and hidden experts
+  const activeExperts = experts.filter(e =>
+    !e.isArchived &&
+    !e.fieldData?.isArchived &&
+    !e.fieldData?.hidden
+  );
 
   expertsCache.data = activeExperts;
   expertsCache.timestamp = now;
