@@ -319,7 +319,7 @@
         description = 'Find qualified experts. Browse profiles and connect with professionals.';
     }
 
-    document.title = title;
+    document.title = `${title} | Gyde`;
 
     // Update meta description
     const metaDesc = document.querySelector('meta[name="description"]');
@@ -329,7 +329,7 @@
 
     // Update Open Graph tags
     const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) ogTitle.setAttribute('content', title);
+    if (ogTitle) ogTitle.setAttribute('content', `${title} | Gyde`);
 
     const ogUrl = document.querySelector('meta[property="og:url"]');
     if (ogUrl) ogUrl.setAttribute('content', window.location.href);
@@ -348,7 +348,7 @@
     window.dispatchEvent(event);
 
     // Update title
-    document.title = 'Page Not Found';
+    document.title = 'Page Not Found | Gyde';
   }
 
   /**
