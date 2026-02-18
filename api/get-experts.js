@@ -338,13 +338,13 @@ function filterExperts(experts, skills, certifications, filters) {
       }
     }
 
-    // Filter by category (expert must have at least one skill OR certification in this category)
-    if (categoryId && !skillId && !certificationId) {
+    // Filter by category — expert must have at least one SKILL in the category
+    // This applies even when skillId/certificationId is present, to ensure
+    // the expert has relevant expertise in the category (not just a tool cert)
+    if (categoryId) {
       const expertSkills = data['skills-2'] || [];
-      const expertCerts = data.certifications || [];
       const hasSkillInCategory = expertSkills.some(sid => skillsInCategory.has(sid));
-      const hasCertInCategory = expertCerts.some(cid => certificationsInCategory.has(cid));
-      if (!hasSkillInCategory && !hasCertInCategory) {
+      if (!hasSkillInCategory) {
         return false;
       }
     }
