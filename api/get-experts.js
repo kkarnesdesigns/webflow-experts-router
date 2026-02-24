@@ -414,11 +414,26 @@ module.exports = async (req, res) => {
       parseInt(offset) + parseInt(limit)
     );
 
+    // Look up long SEO description for the matched skill or certification
+    let seoContent = null;
+    if (skillId) {
+      const matchedSkill = skills.find(s => s.id === skillId);
+      if (matchedSkill) {
+        seoContent = matchedSkill.fieldData?.['long-seo-description'] || null;
+      }
+    } else if (certificationId) {
+      const matchedCert = certifications.find(c => c.id === certificationId);
+      if (matchedCert) {
+        seoContent = matchedCert.fieldData?.['long-seo-description'] || null;
+      }
+    }
+
     // Return filtered and paginated results
     res.status(200).json({
       items: paginatedExperts,
       count: paginatedExperts.length,
       total: filteredExperts.length,
+      seoContent,
       filters: {
         stateId: stateId || null,
         cityId: cityId || null,

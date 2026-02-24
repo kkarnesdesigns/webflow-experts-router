@@ -166,6 +166,17 @@
       window.Wized.data.v.categoryId = params.categoryId || '';
       window.Wized.data.v.skillId = params.skillId || '';
       window.Wized.data.v.certificationId = params.certificationId || '';
+
+      // Show long SEO content only on general landing pages (no location)
+      const isIndexPage = params.type === 'skill-index' || params.type === 'certification-index';
+      window.Wized.data.v.showLongSeo = isIndexPage;
+
+      // Hide/show the read-more container based on route type
+      const readMoreContainer = document.getElementById('read-more-container');
+      if (readMoreContainer) {
+        readMoreContainer.style.display = isIndexPage ? '' : 'none';
+      }
+
       console.log('Stored route params in Wized data store');
     };
 
