@@ -167,14 +167,14 @@
       window.Wized.data.v.skillId = params.skillId || '';
       window.Wized.data.v.certificationId = params.certificationId || '';
 
-      // Show long SEO content only on general landing pages (no location)
-      const isIndexPage = params.type === 'skill-index' || params.type === 'certification-index';
-      window.Wized.data.v.showLongSeo = isIndexPage;
+      // Default showLongSeo to false; will be set to true after request completes on index pages
+      window.Wized.data.v.showLongSeo = false;
 
-      // Hide/show the read-more container based on route type
+      // Hide read-more container on location pages immediately to prevent flash
+      const isIndexPage = params.type === 'skill-index' || params.type === 'certification-index';
       const readMoreContainer = document.getElementById('read-more-container');
-      if (readMoreContainer) {
-        readMoreContainer.style.display = isIndexPage ? '' : 'none';
+      if (readMoreContainer && !isIndexPage) {
+        readMoreContainer.style.display = 'none';
       }
 
       console.log('Stored route params in Wized data store');
@@ -186,6 +186,13 @@
         console.log(`Triggering Wized get_experts request (attempt ${attempt})...`);
         const result = await window.Wized.requests.execute('get_experts');
         console.log('Wized request result:', result);
+
+        // After successful request, enable SEO content visibility on index pages
+        const isIndexPage = params.type === 'skill-index' || params.type === 'certification-index';
+        if (isIndexPage && result !== undefined) {
+          window.Wized.data.v.showLongSeo = true;
+          console.log('Set showLongSeo to true after request completed');
+        }
 
         // Check if result has data - if undefined or empty, Wized may need more time
         if (result === undefined && attempt < 3) {
