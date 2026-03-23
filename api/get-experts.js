@@ -220,9 +220,9 @@ async function getSeoContent() {
 
 /**
  * Look up SEO landing content for a specific route combination.
- * Matches by skill/cert + state + city reference fields.
+ * Matches by constructing the expected CMS item name from skill/cert + location names.
  */
-function findSeoContentForRoute(seoItems, filters) {
+function findSeoContentForRoute(seoItems, filters, skills, certifications, states, cities) {
   if (!seoItems || seoItems.length === 0) return null;
 
   const { skillId, certificationId, stateId, cityId } = filters;
@@ -230,23 +230,36 @@ function findSeoContentForRoute(seoItems, filters) {
   // Only look for SEO content on location pages (state/city + skill/cert)
   if (!stateId || (!skillId && !certificationId)) return null;
 
+  // Look up names to construct the expected CMS item name
+  let entityName = '';
+  if (skillId) {
+    const skill = skills.find(s => s.id === skillId);
+    entityName = skill?.fieldData?.name || '';
+  } else if (certificationId) {
+    const cert = certifications.find(c => c.id === certificationId);
+    entityName = cert?.fieldData?.name || '';
+  }
+
+  const state = states.find(s => s.id === stateId);
+  const stateName = state?.fieldData?.name || '';
+
+  let cityName = '';
+  if (cityId) {
+    const city = cities.find(c => c.id === cityId);
+    cityName = city?.fieldData?.name || '';
+  }
+
+  if (!entityName || !stateName) return null;
+
+  // Build expected name: "{Skill/Cert} - {City}, {State}" or "{Skill/Cert} - {State}"
+  const locationParts = [cityName, stateName].filter(Boolean);
+  const expectedName = `${entityName} - ${locationParts.join(', ')}`;
+
   for (const item of seoItems) {
     const fd = item.fieldData || {};
+    const itemName = fd.name || '';
 
-    // Match skill or certification reference
-    if (skillId && fd['skill-ref'] !== skillId) continue;
-    if (certificationId && fd['certification-ref'] !== certificationId) continue;
-
-    // Match state reference
-    if (fd['state-ref'] !== stateId) continue;
-
-    // Match city reference (null/empty for state-level pages)
-    const itemCityRef = fd['city-ref'] || null;
-    const filterCityId = cityId || null;
-    if (itemCityRef !== filterCityId) continue;
-
-    // Check generation status
-    if (fd['generation-status'] !== 'success') continue;
+    if (itemName !== expectedName) continue;
 
     return {
       metaTitle: fd['meta-title'] || null,
@@ -502,9 +515,11 @@ module.exports = async (req, res) => {
     }
 
     // Look up rich SEO landing content from the dedicated collection
-    const seoLanding = findSeoContentForRoute(seoItems, {
-      skillId, certificationId, stateId, cityId
-    });
+    const seoLanding = findSeoContentForRoute(
+      seoItems,
+      { skillId, certificationId, stateId, cityId },
+      skills, certifications, states, cities
+    );
 
     // Return filtered and paginated results
     res.status(200).json({
