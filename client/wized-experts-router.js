@@ -189,13 +189,18 @@
 
         // After successful request, enable SEO content visibility
         const isIndexPage = params.type === 'skill-index' || params.type === 'certification-index';
-        if (isIndexPage && result !== undefined) {
-          window.Wized.data.v.showLongSeo = true;
-          console.log('Set showLongSeo to true after request completed');
-        }
 
-        // Apply rich SEO landing content from the dedicated CMS collection
         if (result !== undefined) {
+          // Check if we have CMS SEO landing content for this page
+          const hasLandingContent = result?.data?.seoLanding != null;
+
+          // Show long SEO on index pages OR any page with CMS landing content
+          if (isIndexPage || hasLandingContent) {
+            window.Wized.data.v.showLongSeo = true;
+            console.log('Set showLongSeo to true' + (hasLandingContent ? ' (CMS landing content found)' : ' (index page)'));
+          }
+
+          // Apply rich SEO landing content from the dedicated CMS collection
           applySeoLandingContent(params);
         }
 
