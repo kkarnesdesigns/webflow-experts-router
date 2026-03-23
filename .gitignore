@@ -33,5 +33,9 @@ output/
 dist/
 build/
 
+# SEO content generation output
+seo-content/*.csv
+seo-content/*-failures.json
+
 # Cache
 .cache/

@@ -187,11 +187,16 @@
         const result = await window.Wized.requests.execute('get_experts');
         console.log('Wized request result:', result);
 
-        // After successful request, enable SEO content visibility on index pages
+        // After successful request, enable SEO content visibility
         const isIndexPage = params.type === 'skill-index' || params.type === 'certification-index';
         if (isIndexPage && result !== undefined) {
           window.Wized.data.v.showLongSeo = true;
           console.log('Set showLongSeo to true after request completed');
+        }
+
+        // Apply rich SEO landing content from the dedicated CMS collection
+        if (result !== undefined) {
+          applySeoLandingContent(params);
         }
 
         // Check if result has data - if undefined or empty, Wized may need more time
@@ -276,6 +281,73 @@
 
   function triggerWizedRequest() {
     // Now handled by storeInWizedAndTriggerRequest
+  }
+
+  /**
+   * Apply rich SEO landing content from the API response.
+   * Called after the Wized get_experts request completes.
+   */
+  function applySeoLandingContent(params) {
+    try {
+      // Access the Wized request result to get seoLanding data
+      const requestResult = window.Wized?.data?.r?.get_experts?.data;
+      const seoLanding = requestResult?.seoLanding;
+
+      if (!seoLanding) return;
+
+      console.log('Applying SEO landing content from CMS');
+
+      // Override meta tags with CMS content
+      if (seoLanding.metaTitle) {
+        document.title = seoLanding.metaTitle;
+        const ogTitle = document.querySelector('meta[property="og:title"]');
+        if (ogTitle) ogTitle.setAttribute('content', seoLanding.metaTitle);
+      }
+
+      if (seoLanding.metaDescription) {
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc) metaDesc.setAttribute('content', seoLanding.metaDescription);
+      }
+
+      // Override H1
+      if (seoLanding.h1) {
+        const h1El = document.querySelector('[data-seo="h1"]') || document.querySelector('h1');
+        if (h1El) h1El.textContent = seoLanding.h1;
+      }
+
+      // Set hero subhead
+      if (seoLanding.heroSubhead) {
+        const subheadEl = document.querySelector('[data-seo="hero-subhead"]');
+        if (subheadEl) subheadEl.textContent = seoLanding.heroSubhead;
+      }
+
+      // Render SEO body content in the read-more container
+      if (seoLanding.seoBody) {
+        const readMoreContainer = document.getElementById('read-more-container');
+        const seoBodyEl = document.querySelector('[data-seo="seo-body"]');
+
+        if (seoBodyEl) {
+          seoBodyEl.innerHTML = seoLanding.seoBody;
+        } else if (readMoreContainer) {
+          // Find or create a content element within the container
+          let contentEl = readMoreContainer.querySelector('.seo-body-content');
+          if (!contentEl) {
+            contentEl = document.createElement('div');
+            contentEl.className = 'seo-body-content';
+            readMoreContainer.appendChild(contentEl);
+          }
+          contentEl.innerHTML = seoLanding.seoBody;
+        }
+
+        // Show the read-more container for location pages that have CMS SEO content
+        if (readMoreContainer) {
+          readMoreContainer.style.display = '';
+          window.Wized.data.v.showLongSeo = true;
+        }
+      }
+    } catch (e) {
+      console.warn('Error applying SEO landing content:', e);
+    }
   }
 
   /**

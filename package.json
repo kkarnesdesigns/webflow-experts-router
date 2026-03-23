@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "node api/generate-routes.js",
     "test": "node test-local.js",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "generate:seo": "node seo-content/generate-seo-content.js",
+    "generate:seo:dry": "node seo-content/generate-seo-content.js --dry-run",
+    "generate:seo:test": "node seo-content/generate-seo-content.js --limit 5"
   },
   "keywords": [
     "webflow",

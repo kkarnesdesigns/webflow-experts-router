@@ -49,6 +49,13 @@ let certificationsCache = {
   ttl: 30 * 60 * 1000 // 30 minutes
 };
 
+// Cache for SEO landing content
+let seoContentCache = {
+  data: null,
+  timestamp: 0,
+  ttl: 30 * 60 * 1000 // 30 minutes
+};
+
 /**
  * Fetch all items from a Webflow collection with pagination
  */
@@ -186,6 +193,71 @@ async function getCertifications() {
   certificationsCache.timestamp = now;
 
   return activeCertifications;
+}
+
+/**
+ * Get SEO landing content (with caching)
+ */
+async function getSeoContent() {
+  if (!process.env.WEBFLOW_SEO_COLLECTION_ID) return null;
+
+  const now = Date.now();
+  if (seoContentCache.data && (now - seoContentCache.timestamp) < seoContentCache.ttl) {
+    return seoContentCache.data;
+  }
+
+  try {
+    const items = await fetchAllItems(process.env.WEBFLOW_SEO_COLLECTION_ID);
+    const activeItems = items.filter(i => !i.isArchived && !i.fieldData?.isArchived);
+    seoContentCache.data = activeItems;
+    seoContentCache.timestamp = now;
+    return activeItems;
+  } catch (error) {
+    console.error('Error fetching SEO content:', error.message);
+    return seoContentCache.data || null;
+  }
+}
+
+/**
+ * Look up SEO landing content for a specific route combination.
+ * Matches by skill/cert + state + city reference fields.
+ */
+function findSeoContentForRoute(seoItems, filters) {
+  if (!seoItems || seoItems.length === 0) return null;
+
+  const { skillId, certificationId, stateId, cityId } = filters;
+
+  // Only look for SEO content on location pages (state/city + skill/cert)
+  if (!stateId || (!skillId && !certificationId)) return null;
+
+  for (const item of seoItems) {
+    const fd = item.fieldData || {};
+
+    // Match skill or certification reference
+    if (skillId && fd['skill-ref'] !== skillId) continue;
+    if (certificationId && fd['certification-ref'] !== certificationId) continue;
+
+    // Match state reference
+    if (fd['state-ref'] !== stateId) continue;
+
+    // Match city reference (null/empty for state-level pages)
+    const itemCityRef = fd['city-ref'] || null;
+    const filterCityId = cityId || null;
+    if (itemCityRef !== filterCityId) continue;
+
+    // Check generation status
+    if (fd['generation-status'] !== 'success') continue;
+
+    return {
+      metaTitle: fd['meta-title'] || null,
+      metaDescription: fd['meta-description'] || null,
+      h1: fd['h1'] || null,
+      heroSubhead: fd['hero-subhead'] || null,
+      seoBody: fd['seo-body'] || null,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -383,13 +455,14 @@ module.exports = async (req, res) => {
       offset = 0
     } = req.query;
 
-    // Fetch experts, skills, cities, states, and certifications (cached)
-    const [experts, skills, cities, states, certifications] = await Promise.all([
+    // Fetch experts, skills, cities, states, certifications, and SEO content (cached)
+    const [experts, skills, cities, states, certifications, seoItems] = await Promise.all([
       getExperts(),
       getSkills(), // Always fetch skills for name enrichment
       getCities(),
       getStates(),
-      getCertifications()
+      getCertifications(),
+      getSeoContent()
     ]);
 
     // Enrich experts with city, state, skill, and certification names
@@ -428,12 +501,18 @@ module.exports = async (req, res) => {
       }
     }
 
+    // Look up rich SEO landing content from the dedicated collection
+    const seoLanding = findSeoContentForRoute(seoItems, {
+      skillId, certificationId, stateId, cityId
+    });
+
     // Return filtered and paginated results
     res.status(200).json({
       items: paginatedExperts,
       count: paginatedExperts.length,
       total: filteredExperts.length,
       seoContent,
+      seoLanding,
       filters: {
         stateId: stateId || null,
         cityId: cityId || null,
