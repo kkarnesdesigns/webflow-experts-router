@@ -290,8 +290,12 @@
   function applySeoLandingContent(params) {
     try {
       // Access the Wized request result to get seoLanding data
-      const requestResult = window.Wized?.data?.r?.get_experts?.data;
-      const seoLanding = requestResult?.seoLanding;
+      // Wized stores responses in different paths depending on configuration
+      const r = window.Wized?.data?.r?.get_experts;
+      const seoLanding = r?.data?.seoLanding || r?.seoLanding || r?.data?.body?.seoLanding || null;
+
+      console.log('SEO landing lookup - Wized response keys:', r ? Object.keys(r) : 'no response');
+      if (r?.data) console.log('SEO landing lookup - data keys:', Object.keys(r.data));
 
       if (!seoLanding) return;
 
