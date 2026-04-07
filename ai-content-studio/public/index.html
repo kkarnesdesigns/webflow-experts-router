@@ -8,13 +8,16 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>AI Content Studio</h1>
+    <div class="topbar-left">
+      <button id="sidebar-toggle" class="icon-btn mobile-only" aria-label="Toggle items">☰</button>
+      <h1>AI Content Studio</h1>
+    </div>
     <div class="topbar-actions">
       <button id="open-style-guide" class="secondary">Style Guide</button>
-      <span id="model-label" class="muted"></span>
     </div>
   </header>
 
+  <div id="sidebar-backdrop" class="backdrop hidden"></div>
   <main class="layout">
     <aside class="sidebar">
       <div class="field">

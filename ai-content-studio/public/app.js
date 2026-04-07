@@ -166,6 +166,7 @@ function showEditor(show) {
 let selectToken = 0;
 async function selectItem(id) {
   if (!state.collectionMeta?.supported) return;
+  if (isMobile()) closeSidebar();
   const myToken = ++selectToken;
   state.selectedId = id;
   state.currentItem = null;
@@ -451,7 +452,16 @@ function escapeHtml(s) {
 }
 
 // ---------- Wire up ----------
+function openSidebar() { document.body.classList.add('sidebar-open'); $('#sidebar-backdrop').classList.remove('hidden'); }
+function closeSidebar() { document.body.classList.remove('sidebar-open'); $('#sidebar-backdrop').classList.add('hidden'); }
+function isMobile() { return window.matchMedia('(max-width: 720px)').matches; }
+
 function init() {
+  $('#sidebar-toggle').addEventListener('click', () => {
+    if (document.body.classList.contains('sidebar-open')) closeSidebar();
+    else openSidebar();
+  });
+  $('#sidebar-backdrop').addEventListener('click', closeSidebar);
   $('#collection-select').addEventListener('change', onCollectionChange);
   $('#search-input').addEventListener('input', applySearch);
   $('#refresh-items').addEventListener('click', loadItems);
