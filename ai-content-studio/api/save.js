@@ -1,42 +1,45 @@
 /**
- * Save approved content back to the Webflow CMS item.
+ * Save approved content back to the Webflow CMS item, using auto-detected
+ * field slugs from the collection schema.
  *
  * POST body:
  * {
  *   collection: 'skills',
  *   itemId: '...',
  *   content: '<html body>',
- *   publish: false,                // default false -> draft
- *   notes: 'optional qa notes'
+ *   publish: false,
+ *   notes: 'optional qa notes',
+ *   version: 'optional version string'
  * }
  *
- * Supports batch by accepting `items: [{ itemId, content, notes }, ...]`.
+ * Batch: pass `items: [{ itemId, content, notes, version }, ...]`.
  */
 
 const crypto = require('crypto');
 const WebflowAPI = require('../../lib/webflow-api');
-const { cors, readJsonBody, getCollection, FIELDS } = require('../lib/config');
+const { cors, readJsonBody, getCollection } = require('../lib/config');
+const { getFieldMap } = require('../lib/field-map');
 
 function fingerprint(content) {
   return crypto.createHash('sha1').update(content || '').digest('hex').slice(0, 16);
 }
 
-async function saveOne(api, col, entry, publish) {
-  const fieldUpdate = {
-    [FIELDS.body]: entry.content,
-    [FIELDS.refresh]: new Date().toISOString(),
-    [FIELDS.fingerprint]: fingerprint(entry.content),
-  };
-  if (entry.version) fieldUpdate[FIELDS.version] = entry.version;
-  if (entry.notes !== undefined) fieldUpdate[FIELDS.notes] = entry.notes;
+async function saveOne(api, col, fields, entry, publish) {
+  if (!fields.body) {
+    throw new Error(
+      `Could not auto-detect a body/RichText field on collection ${col.key}. ` +
+        `Add a RichText field or set one matching slug 'page-body'/'body'/'content'.`
+    );
+  }
 
-  const updated = await api.updateCollectionItem(
-    col.id,
-    entry.itemId,
-    fieldUpdate,
-    !publish
-  );
-  return { itemId: entry.itemId, ok: true, updatedId: updated?.id };
+  const fieldUpdate = { [fields.body]: entry.content };
+  if (fields.refresh) fieldUpdate[fields.refresh] = new Date().toISOString();
+  if (fields.fingerprint) fieldUpdate[fields.fingerprint] = fingerprint(entry.content);
+  if (fields.version && entry.version) fieldUpdate[fields.version] = entry.version;
+  if (fields.notes && entry.notes !== undefined) fieldUpdate[fields.notes] = entry.notes;
+
+  const updated = await api.updateCollectionItem(col.id, entry.itemId, fieldUpdate, !publish);
+  return { itemId: entry.itemId, ok: true, updatedId: updated?.id, applied: Object.keys(fieldUpdate) };
 }
 
 module.exports = async (req, res) => {
@@ -52,6 +55,7 @@ module.exports = async (req, res) => {
     const col = getCollection(body.collection);
     if (!col) return res.status(400).json({ error: 'Unknown collection' });
 
+    const fields = await getFieldMap(col.id);
     const publish = !!body.publish;
     const api = new WebflowAPI(token);
 
@@ -66,14 +70,13 @@ module.exports = async (req, res) => {
     const results = [];
     for (const entry of entries) {
       try {
-        results.push(await saveOne(api, col, entry, publish));
+        results.push(await saveOne(api, col, fields, entry, publish));
       } catch (err) {
         console.error('save error for', entry.itemId, err.response?.data || err.message);
         results.push({ itemId: entry.itemId, ok: false, error: err.message });
       }
     }
 
-    // Optionally publish saved items
     if (publish) {
       const ids = results.filter((r) => r.ok).map((r) => r.itemId);
       if (ids.length) {
@@ -85,7 +88,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    res.status(200).json({ ok: true, results });
+    res.status(200).json({ ok: true, fields, results });
   } catch (err) {
     console.error('save error:', err);
     res.status(500).json({ error: err.message });

@@ -17,7 +17,8 @@
  */
 
 const WebflowAPI = require('../../lib/webflow-api');
-const { cors, readJsonBody, getCollection, FIELDS } = require('../lib/config');
+const { cors, readJsonBody, getCollection } = require('../lib/config');
+const { getFieldMap } = require('../lib/field-map');
 const { callClaude, buildSystemPrompt, MODEL } = require('../lib/claude');
 const styleGuide = require('../lib/style-guide-store');
 
@@ -30,17 +31,24 @@ async function loadItem(col, itemId) {
   return data;
 }
 
-function buildInitialUserTurn({ col, item, instructions }) {
+function buildInitialUserTurn({ col, item, instructions, fields }) {
   const fd = item.fieldData || {};
   const contextLines = [
     `Collection: ${col.label}`,
     `Name: ${fd.name || item.name || ''}`,
     `Slug: ${fd.slug || item.slug || ''}`,
   ];
-  if (fd['short-description']) contextLines.push(`Short description: ${fd['short-description']}`);
-  if (fd['description']) contextLines.push(`Existing description: ${fd['description']}`);
+  // Include any short-text context fields that exist on this collection.
+  for (const f of fields.allFields || []) {
+    if (f.slug === fields.body || f.slug === 'name' || f.slug === 'slug') continue;
+    if (!['PlainText', 'Text', 'Link'].includes(f.type)) continue;
+    const val = fd[f.slug];
+    if (val && typeof val === 'string' && val.length < 500) {
+      contextLines.push(`${f.name}: ${val}`);
+    }
+  }
 
-  const currentBody = fd[FIELDS.body] || item.body || '';
+  const currentBody = (fields.body && fd[fields.body]) || item.body || '';
 
   let prompt =
     `Rewrite the page body content for the following CMS item.\n\n` +
@@ -76,6 +84,8 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Unknown collection' });
     }
 
+    const fields = await getFieldMap(col.id);
+
     let item = body.item;
     if (body.itemId) {
       item = await loadItem(col, body.itemId);
@@ -94,6 +104,7 @@ module.exports = async (req, res) => {
       col,
       item,
       instructions: body.instructions,
+      fields,
     });
     messages.push({ role: 'user', content: initialUserTurn });
 

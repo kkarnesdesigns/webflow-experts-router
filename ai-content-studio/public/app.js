@@ -150,10 +150,12 @@ async function selectItem(id) {
     );
     state.currentItem = item;
     $('#item-name').textContent = item.name || '(unnamed)';
+    const detected = item.fields || {};
     $('#item-meta').textContent = [
       item.slug ? `/${item.slug}` : '',
       item.aiVersion ? `v${item.aiVersion}` : '',
       item.lastRefresh ? `updated ${new Date(item.lastRefresh).toLocaleDateString()}` : '',
+      detected.body ? `body → ${detected.body}` : 'no body field detected',
     ]
       .filter(Boolean)
       .join(' · ');

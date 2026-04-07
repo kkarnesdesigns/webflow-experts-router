@@ -1,42 +1,16 @@
 /**
  * Shared config for AI Content Studio endpoints.
- * Maps our 5 collection "kinds" to env-configured collection IDs and
- * to the Webflow field slugs we read/write.
+ * Maps our 5 collection "kinds" to env-configured collection IDs.
+ * Field slugs are auto-detected per collection via lib/field-map.js - we no
+ * longer rely on hard-coded slugs.
  */
 
-const BODY_FIELD = process.env.AI_STUDIO_BODY_FIELD || 'page-body';
-const VERSION_FIELD = process.env.AI_STUDIO_VERSION_FIELD || 'ai-version';
-const REFRESH_FIELD = process.env.AI_STUDIO_REFRESH_FIELD || 'last-ai-refresh';
-const FINGERPRINT_FIELD = process.env.AI_STUDIO_FINGERPRINT_FIELD || 'ai-fingerprint';
-const NOTES_FIELD = process.env.AI_STUDIO_NOTES_FIELD || 'ai-notes';
-const LOCK_FIELD = process.env.AI_STUDIO_LOCK_FIELD || 'ai-lock';
-
 const COLLECTIONS = {
-  categories: {
-    key: 'categories',
-    label: 'Categories',
-    envVar: 'WEBFLOW_CATEGORIES_COLLECTION_ID',
-  },
-  skills: {
-    key: 'skills',
-    label: 'Skills',
-    envVar: 'WEBFLOW_SKILLS_COLLECTION_ID',
-  },
-  certifications: {
-    key: 'certifications',
-    label: 'Certifications',
-    envVar: 'WEBFLOW_CERTIFICATIONS_COLLECTION_ID',
-  },
-  cities: {
-    key: 'cities',
-    label: 'Cities',
-    envVar: 'WEBFLOW_CITIES_COLLECTION_ID',
-  },
-  states: {
-    key: 'states',
-    label: 'States',
-    envVar: 'WEBFLOW_STATES_COLLECTION_ID',
-  },
+  categories: { key: 'categories', label: 'Categories', envVar: 'WEBFLOW_CATEGORIES_COLLECTION_ID' },
+  skills: { key: 'skills', label: 'Skills', envVar: 'WEBFLOW_SKILLS_COLLECTION_ID' },
+  certifications: { key: 'certifications', label: 'Certifications', envVar: 'WEBFLOW_CERTIFICATIONS_COLLECTION_ID' },
+  cities: { key: 'cities', label: 'Cities', envVar: 'WEBFLOW_CITIES_COLLECTION_ID' },
+  states: { key: 'states', label: 'States', envVar: 'WEBFLOW_STATES_COLLECTION_ID' },
 };
 
 function getCollection(key) {
@@ -48,21 +22,12 @@ function getCollection(key) {
 }
 
 function listCollections() {
-  return Object.values(COLLECTIONS)
-    .map((c) => {
-      const id = process.env[c.envVar];
-      return { key: c.key, label: c.label, configured: !!id };
-    });
+  return Object.values(COLLECTIONS).map((c) => ({
+    key: c.key,
+    label: c.label,
+    configured: !!process.env[c.envVar],
+  }));
 }
-
-const FIELDS = {
-  body: BODY_FIELD,
-  version: VERSION_FIELD,
-  refresh: REFRESH_FIELD,
-  fingerprint: FINGERPRINT_FIELD,
-  notes: NOTES_FIELD,
-  lock: LOCK_FIELD,
-};
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -86,11 +51,4 @@ async function readJsonBody(req) {
   });
 }
 
-module.exports = {
-  COLLECTIONS,
-  FIELDS,
-  getCollection,
-  listCollections,
-  cors,
-  readJsonBody,
-};
+module.exports = { COLLECTIONS, getCollection, listCollections, cors, readJsonBody };
