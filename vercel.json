@@ -44,6 +44,10 @@
       "dest": "/ai-content-studio/api/collections.js"
     },
     {
+      "src": "/api/ai-studio/schema",
+      "dest": "/ai-content-studio/api/schema.js"
+    },
+    {
       "src": "/api/ai-studio/items",
       "dest": "/ai-content-studio/api/items.js"
     },
