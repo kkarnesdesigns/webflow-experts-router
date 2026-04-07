@@ -13,6 +13,9 @@ const state = {
   currentItem: null,
   history: [],               // full prior turns for revision loops
   batchResults: new Map(),   // itemId -> { status, values }
+  tab: 'cms',                // 'cms' | 'gsc'
+  gscPages: [],
+  gscMeta: null,
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -89,6 +92,7 @@ async function loadItems() {
     const data = await api(`/items?collection=${encodeURIComponent(col)}&limit=500`);
     state.items = data.items;
     applySearch();
+    if (state.gscPages.length) renderGsc();
   } catch (e) {
     $('#items-list').innerHTML = `<div class="muted small" style="padding:10px">Error: ${e.message}</div>`;
   }
@@ -452,6 +456,85 @@ function escapeHtml(s) {
 }
 
 // ---------- Wire up ----------
+// ---------- GSC tab ----------
+function switchTab(name) {
+  state.tab = name;
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+  $('#tab-cms').classList.toggle('hidden', name !== 'cms');
+  $('#tab-gsc').classList.toggle('hidden', name !== 'gsc');
+}
+
+async function loadGsc() {
+  const days = $('#gsc-days').value;
+  const sort = $('#gsc-sort').value;
+  const minImpressions = $('#gsc-min-impressions').value || '0';
+  const contains = $('#gsc-contains').value.trim();
+  const list = $('#gsc-list');
+  list.innerHTML = '<div class="muted small" style="padding:10px">Loading…</div>';
+  $('#gsc-meta').textContent = '';
+  try {
+    const qs = new URLSearchParams({ days, sort, minImpressions, limit: '200' });
+    if (contains) qs.set('contains', contains);
+    const data = await api(`/gsc-pages?${qs}`);
+    if (!data.configured) {
+      list.innerHTML = `<div class="muted small" style="padding:10px">${escapeHtml(data.error || 'GSC not configured')}</div>`;
+      return;
+    }
+    state.gscPages = data.pages;
+    state.gscMeta = data;
+    renderGsc();
+  } catch (e) {
+    list.innerHTML = `<div class="muted small" style="padding:10px">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function findCmsItemBySlug(slug) {
+  if (!slug) return null;
+  const norm = slug.toLowerCase();
+  return state.items.find((i) => i.slug && i.slug.toLowerCase() === norm) || null;
+}
+
+function renderGsc() {
+  const list = $('#gsc-list');
+  const pages = state.gscPages;
+  if (!pages.length) {
+    list.innerHTML = '<div class="muted small" style="padding:10px">No pages match the filters.</div>';
+    $('#gsc-meta').textContent = '';
+    return;
+  }
+  list.innerHTML = '';
+  let matched = 0;
+  for (const p of pages) {
+    const match = findCmsItemBySlug(p.slug);
+    if (match) matched++;
+    const row = document.createElement('div');
+    row.className = `gsc-row ${match ? 'matched' : 'unmatched'}`;
+    row.innerHTML = `
+      <div>
+        <span class="slug">${escapeHtml(p.slug || '(no slug)')}</span>
+        ${match ? '<span class="badge match">in CMS</span>' : '<span class="badge nomatch">no match</span>'}
+      </div>
+      <div class="url">${escapeHtml(p.page)}</div>
+      <div class="metrics">
+        <span class="metric">pos <b>${p.position.toFixed(1)}</b></span>
+        <span class="metric">imp <b>${p.impressions}</b></span>
+        <span class="metric">clk <b>${p.clicks}</b></span>
+        <span class="metric">ctr <b>${(p.ctr * 100).toFixed(1)}%</b></span>
+      </div>
+    `;
+    row.addEventListener('click', () => {
+      if (!match) {
+        toast(`No CMS match for "${p.slug}" in ${state.currentCollection}. Try another collection.`);
+        return;
+      }
+      selectItem(match.id);
+    });
+    list.appendChild(row);
+  }
+  const meta = state.gscMeta;
+  $('#gsc-meta').textContent = `${pages.length} pages · ${matched} matched · ${meta.startDate} → ${meta.endDate}`;
+}
+
 function openSidebar() { document.body.classList.add('sidebar-open'); $('#sidebar-backdrop').classList.remove('hidden'); }
 function closeSidebar() { document.body.classList.remove('sidebar-open'); $('#sidebar-backdrop').classList.add('hidden'); }
 function isMobile() { return window.matchMedia('(max-width: 720px)').matches; }
@@ -462,6 +545,10 @@ function init() {
     else openSidebar();
   });
   $('#sidebar-backdrop').addEventListener('click', closeSidebar);
+  document.querySelectorAll('.tab').forEach((t) =>
+    t.addEventListener('click', () => switchTab(t.dataset.tab))
+  );
+  $('#gsc-load').addEventListener('click', loadGsc);
   $('#collection-select').addEventListener('change', onCollectionChange);
   $('#search-input').addEventListener('input', applySearch);
   $('#refresh-items').addEventListener('click', loadItems);

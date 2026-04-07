@@ -68,6 +68,10 @@
       "dest": "/ai-content-studio/api/save.js"
     },
     {
+      "src": "/api/ai-studio/gsc-pages",
+      "dest": "/ai-content-studio/api/gsc-pages.js"
+    },
+    {
       "src": "/ai-content-studio/?",
       "dest": "/ai-content-studio/public/index.html"
     },

@@ -80,6 +80,22 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .muted { color: #6b7280; }
 .small { font-size: 12px; }
 
+.tabs { display: flex; gap: 4px; background: #f3f4f6; padding: 4px; border-radius: 6px; }
+.tab { flex: 1; background: transparent; border: none; padding: 8px 10px; border-radius: 4px; font-size: 13px; color: #374151; min-height: 0; }
+.tab.active { background: #fff; color: #111827; box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-weight: 600; }
+.tab-panel { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+
+.gsc-row { padding: 10px; border-bottom: 1px solid #eef0f3; cursor: pointer; font-size: 12px; }
+.gsc-row:hover { background: #eef2ff; }
+.gsc-row.unmatched { opacity: 0.55; }
+.gsc-row.matched .slug { color: #1d4ed8; font-weight: 600; }
+.gsc-row .url { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #374151; word-break: break-all; }
+.gsc-row .metrics { display: flex; gap: 10px; margin-top: 4px; color: #6b7280; flex-wrap: wrap; }
+.gsc-row .metric { font-size: 11px; }
+.gsc-row .metric b { color: #111827; font-weight: 600; }
+.gsc-row .badge.match { background: #dcfce7; color: #15803d; font-size: 10px; padding: 2px 6px; border-radius: 999px; }
+.gsc-row .badge.nomatch { background: #fee2e2; color: #b91c1c; font-size: 10px; padding: 2px 6px; border-radius: 999px; }
+
 .field-block { margin-top: 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
 .field-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
 .field-block label { font-size: 12px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.03em; }

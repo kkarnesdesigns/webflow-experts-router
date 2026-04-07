@@ -30,6 +30,25 @@ All endpoints live under `/api/ai-studio/*`:
 | `/api/ai-studio/generate` | POST | Generate or revise body content for one item via Claude. |
 | `/api/ai-studio/save` | POST | Write the body + AI tracking fields back to the Webflow item (draft). |
 
+## Google Search Console integration
+
+The studio can pull page-level GSC data so you can quickly find
+low-performing pages to rewrite. Configure two env vars:
+
+```
+GSC_SITE_URL=https://joingyde.com/          # or sc-domain:joingyde.com
+GSC_SERVICE_ACCOUNT_JSON={"type":"service_account",...}   # full JSON blob
+```
+
+Then add the service account's `client_email` as a user on the Search
+Console property (read access is enough). In the UI, switch the sidebar to
+the **GSC** tab, pick a lookback window + sort (default: worst average
+position first), and click a page to jump into the matching CMS item.
+Matching is by the last path segment of the URL against the current
+collection's item slug.
+
+Endpoint: `GET /api/ai-studio/gsc-pages?days=28&minImpressions=20&sort=position&contains=skill`
+
 ## Environment variables
 
 Reuses the existing ones, plus:
