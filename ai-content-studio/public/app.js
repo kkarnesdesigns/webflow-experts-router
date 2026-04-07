@@ -163,9 +163,12 @@ function showEditor(show) {
   $('#editor-panel').classList.toggle('hidden', !show || !supported);
 }
 
+let selectToken = 0;
 async function selectItem(id) {
   if (!state.collectionMeta?.supported) return;
+  const myToken = ++selectToken;
   state.selectedId = id;
+  state.currentItem = null;
   state.history = [];
   renderItems();
   showEditor(true);
@@ -174,10 +177,16 @@ async function selectItem(id) {
   $('#item-meta').textContent = '';
   $('#meta-input').value = '';
   $('#long-input').value = '';
+  // If the long-preview toggle was on, flip it back to edit mode.
+  $('#long-preview').classList.add('hidden');
+  $('#long-input').classList.remove('hidden');
+  $('#toggle-long-preview').textContent = 'Preview';
   updateMetaCounter();
   $('#btn-approve').disabled = true;
   try {
     const item = await api(`/item-detail?collection=${state.currentCollection}&id=${id}`);
+    // Ignore stale responses from a previous click.
+    if (myToken !== selectToken) return;
     state.currentItem = item;
     $('#item-name').textContent = item.name || '(unnamed)';
     $('#item-meta').textContent = item.slug ? `/${item.slug}` : '';
@@ -185,7 +194,7 @@ async function selectItem(id) {
     $('#long-input').value = item.values.longSeo || '';
     updateMetaCounter();
   } catch (e) {
-    toast('Error loading item: ' + e.message, 4000);
+    if (myToken === selectToken) toast('Error loading item: ' + e.message, 4000);
   }
 }
 
