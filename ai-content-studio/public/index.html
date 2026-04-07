@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Content Studio</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>AI Content Studio</h1>
+    <div class="topbar-actions">
+      <button id="open-style-guide" class="secondary">Style Guide</button>
+      <span id="model-label" class="muted"></span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Left: collection + item picker -->
+    <aside class="sidebar">
+      <div class="field">
+        <label>Collection</label>
+        <select id="collection-select"></select>
+      </div>
+      <div class="field">
+        <label>Search</label>
+        <input type="text" id="search-input" placeholder="Filter by name or slug" />
+      </div>
+      <div class="field row">
+        <label class="inline"><input type="checkbox" id="select-mode" /> Batch mode</label>
+        <button id="refresh-items" class="secondary small">Refresh</button>
+      </div>
+      <div id="items-list" class="items-list"></div>
+      <div class="sidebar-footer">
+        <span id="items-meta" class="muted"></span>
+      </div>
+    </aside>
+
+    <!-- Right: editor -->
+    <section class="editor">
+      <div id="editor-empty" class="empty">
+        Pick an item on the left to get started, or enable <strong>Batch mode</strong> to select multiple.
+      </div>
+
+      <div id="editor-panel" class="hidden">
+        <div class="editor-header">
+          <div>
+            <h2 id="item-name">—</h2>
+            <div class="muted small" id="item-meta"></div>
+          </div>
+          <div class="editor-header-actions">
+            <button id="btn-generate" class="primary">Generate</button>
+            <button id="btn-approve" class="success" disabled>Approve & Save to Webflow</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Instructions for Claude (optional)</label>
+          <textarea id="instructions" rows="2" placeholder="e.g. Emphasize e-commerce, keep to 400 words"></textarea>
+        </div>
+
+        <div class="split">
+          <div class="pane">
+            <label>Current body (read-only)</label>
+            <div id="current-body" class="readonly-html"></div>
+          </div>
+          <div class="pane">
+            <label>Draft (editable HTML)</label>
+            <textarea id="draft" rows="20" placeholder="Click Generate to have Claude write a draft..."></textarea>
+            <div class="preview-toggle">
+              <button id="toggle-preview" class="secondary small">Preview</button>
+            </div>
+            <div id="draft-preview" class="readonly-html hidden"></div>
+          </div>
+        </div>
+
+        <div class="feedback">
+          <label>Revision feedback</label>
+          <div class="row">
+            <input type="text" id="feedback-input" placeholder="e.g. shorten by 30%, more local flavor, add a FAQ" />
+            <button id="btn-revise" class="secondary">Revise</button>
+          </div>
+          <div id="history" class="history"></div>
+        </div>
+
+        <div class="batch-panel hidden" id="batch-panel">
+          <h3>Batch queue</h3>
+          <div id="batch-list"></div>
+          <div class="row">
+            <button id="btn-batch-generate" class="primary">Generate all</button>
+            <button id="btn-batch-approve" class="success" disabled>Approve & Save all</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Style guide modal -->
+  <div id="style-guide-modal" class="modal hidden">
+    <div class="modal-inner">
+      <div class="modal-header">
+        <h3>Style Guide (Markdown)</h3>
+        <button id="close-style-guide" class="secondary small">Close</button>
+      </div>
+      <p class="muted small">
+        This markdown is injected into every generation request as the system-prompt style guide.
+        Upload a file or paste directly.
+      </p>
+      <input type="file" id="style-guide-file" accept=".md,.markdown,.txt" />
+      <textarea id="style-guide-text" rows="16" placeholder="# Voice & tone..."></textarea>
+      <div class="row">
+        <button id="save-style-guide" class="primary">Save</button>
+        <span id="style-guide-status" class="muted small"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
