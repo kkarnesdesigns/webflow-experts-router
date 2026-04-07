@@ -1,125 +1,126 @@
 /**
- * Generate or revise body content for a single CMS item.
+ * Generate or revise editable-field content for a single CMS item.
+ *
+ * Returns a JSON object keyed by field.key (e.g. { meta, longSeo }).
  *
  * POST body:
  * {
- *   collection: 'skills' | 'categories' | ...,
- *   itemId: '...',                 // optional - we'll fetch fresh data if given
- *   item: {                        // or pass the item context inline
- *     name, slug, body (current), extra: { ... }
- *   },
- *   instructions: 'optional free-text instructions',
- *   history: [                    // prior turns for revision loops
- *     { role: 'assistant', content: '<html>...</html>' },
+ *   collection: 'skills' | 'certifications',
+ *   itemId: '...',                  // required
+ *   instructions: '...',            // optional extra guidance
+ *   history: [                      // optional prior turns for revision loops
+ *     { role: 'assistant', content: '{"meta": "...", "longSeo": "..."}' },
  *     { role: 'user', content: 'make it shorter' }
- *   ]
+ *   ],
+ *   currentValues: { meta, longSeo } // optional override - the edited values
+ *                                    // the user is currently looking at
  * }
  */
 
 const WebflowAPI = require('../../lib/webflow-api');
 const { cors, readJsonBody, getCollection } = require('../lib/config');
-const { getFieldMap } = require('../lib/field-map');
-const { callClaude, buildSystemPrompt, MODEL } = require('../lib/claude');
+const { getEditableFields, isSupported } = require('../lib/editable-fields');
+const { callClaude, buildSystemPrompt, parseJsonResponse, MODEL } = require('../lib/claude');
 const styleGuide = require('../lib/style-guide-store');
 
 async function loadItem(col, itemId) {
   const token = process.env.WEBFLOW_API_TOKEN;
   const api = new WebflowAPI(token);
-  const { data } = await api.client.get(
-    `/collections/${col.id}/items/${itemId}`
-  );
+  const { data } = await api.client.get(`/collections/${col.id}/items/${itemId}`);
   return data;
 }
 
-function buildInitialUserTurn({ col, item, instructions, fields }) {
+function buildInitialUserTurn({ col, item, instructions, editableFields, currentValues }) {
   const fd = item.fieldData || {};
-  const contextLines = [
+  const lines = [
     `Collection: ${col.label}`,
-    `Name: ${fd.name || item.name || ''}`,
-    `Slug: ${fd.slug || item.slug || ''}`,
+    `Name: ${fd.name || ''}`,
+    `Slug: ${fd.slug || ''}`,
   ];
-  // Include any short-text context fields that exist on this collection.
-  for (const f of fields.allFields || []) {
-    if (f.slug === fields.body || f.slug === 'name' || f.slug === 'slug') continue;
-    if (!['PlainText', 'Text', 'Link'].includes(f.type)) continue;
-    const val = fd[f.slug];
-    if (val && typeof val === 'string' && val.length < 500) {
-      contextLines.push(`${f.name}: ${val}`);
-    }
+
+  // Include any short scalar context fields that might be useful.
+  for (const [slug, val] of Object.entries(fd)) {
+    if (slug === 'name' || slug === 'slug') continue;
+    if (editableFields.some((f) => f.slug === slug)) continue;
+    if (typeof val !== 'string') continue;
+    if (val.length > 300) continue;
+    if (!val.trim()) continue;
+    lines.push(`${slug}: ${val}`);
   }
 
-  const currentBody = (fields.body && fd[fields.body]) || item.body || '';
+  let prompt = `Rewrite the following CMS fields for this item.\n\n## Context\n${lines.join('\n')}\n\n`;
 
-  let prompt =
-    `Rewrite the page body content for the following CMS item.\n\n` +
-    `## Context\n${contextLines.join('\n')}\n\n`;
-
-  if (currentBody) {
-    prompt += `## Current body (HTML)\n${currentBody}\n\n`;
-  } else {
-    prompt += `## Current body\n(empty — write a new one from scratch)\n\n`;
+  prompt += `## Current values\n`;
+  for (const f of editableFields) {
+    const current = (currentValues && currentValues[f.key]) || fd[f.slug] || '';
+    prompt += `### ${f.label} (${f.key})\n${current || '(empty — write a new one)'}\n\n`;
   }
 
   if (instructions && instructions.trim()) {
     prompt += `## Additional instructions\n${instructions.trim()}\n\n`;
   }
 
-  prompt +=
-    `Return the rewritten body as clean semantic HTML only, with no markdown fences or commentary.`;
-
+  prompt += `Return ONLY the JSON object with keys: ${editableFields.map((f) => `"${f.key}"`).join(', ')}.`;
   return prompt;
 }
 
 module.exports = async (req, res) => {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'POST required' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
 
   try {
     const body = await readJsonBody(req);
     const col = getCollection(body.collection);
-    if (!col) {
-      return res.status(400).json({ error: 'Unknown collection' });
+    if (!col) return res.status(400).json({ error: 'Unknown collection' });
+    if (!isSupported(col.key)) {
+      return res.status(400).json({
+        error: `Collection "${col.key}" has no AI-editable fields configured.`,
+      });
     }
 
-    const fields = await getFieldMap(col.id);
+    const { fields: editableFields } = getEditableFields(col.key);
 
-    let item = body.item;
-    if (body.itemId) {
-      item = await loadItem(col, body.itemId);
-    }
-    if (!item) {
-      return res.status(400).json({ error: 'item or itemId required' });
-    }
+    if (!body.itemId) return res.status(400).json({ error: 'itemId is required' });
+    const item = await loadItem(col, body.itemId);
 
-    const system = buildSystemPrompt(styleGuide.read());
+    const system = buildSystemPrompt(styleGuide.read(), editableFields);
 
-    // Build the conversation. history lets the UI keep revising.
-    const history = Array.isArray(body.history) ? body.history.slice() : [];
     const messages = [];
-
     const initialUserTurn = buildInitialUserTurn({
       col,
       item,
       instructions: body.instructions,
-      fields,
+      editableFields,
+      currentValues: body.currentValues,
     });
     messages.push({ role: 'user', content: initialUserTurn });
 
-    for (const turn of history) {
+    for (const turn of Array.isArray(body.history) ? body.history : []) {
       if (!turn || !turn.role || !turn.content) continue;
       messages.push({ role: turn.role, content: turn.content });
     }
 
     const { text } = await callClaude({ system, messages, maxTokens: 2500 });
+    const parsed = parseJsonResponse(text);
+
+    if (!parsed) {
+      return res.status(502).json({
+        error: 'Claude returned unparseable JSON',
+        raw: text,
+      });
+    }
+
+    // Only keep the keys we asked for.
+    const values = {};
+    for (const f of editableFields) {
+      values[f.key] = typeof parsed[f.key] === 'string' ? parsed[f.key] : '';
+    }
 
     res.status(200).json({
       ok: true,
       model: MODEL,
-      content: text,
-      // Echo the new turns so the client can append them to its history:
+      values,
       turns: [
         { role: 'user', content: initialUserTurn, synthetic: true },
         { role: 'assistant', content: text },

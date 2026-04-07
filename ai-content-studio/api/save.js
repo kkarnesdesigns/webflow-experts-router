@@ -1,45 +1,48 @@
 /**
- * Save approved content back to the Webflow CMS item, using auto-detected
- * field slugs from the collection schema.
+ * Save approved values back to the Webflow CMS item.
  *
- * POST body:
+ * POST body (single):
  * {
- *   collection: 'skills',
+ *   collection: 'skills' | 'certifications',
  *   itemId: '...',
- *   content: '<html body>',
- *   publish: false,
- *   notes: 'optional qa notes',
- *   version: 'optional version string'
+ *   values: { meta: '...', longSeo: '...' },
+ *   publish: false
  * }
  *
- * Batch: pass `items: [{ itemId, content, notes, version }, ...]`.
+ * POST body (batch):
+ * {
+ *   collection: 'skills',
+ *   publish: false,
+ *   items: [{ itemId, values: { meta, longSeo } }, ...]
+ * }
  */
 
-const crypto = require('crypto');
 const WebflowAPI = require('../../lib/webflow-api');
 const { cors, readJsonBody, getCollection } = require('../lib/config');
-const { getFieldMap } = require('../lib/field-map');
+const { getEditableFields, isSupported } = require('../lib/editable-fields');
 
-function fingerprint(content) {
-  return crypto.createHash('sha1').update(content || '').digest('hex').slice(0, 16);
+function buildFieldUpdate(editableFields, values) {
+  const update = {};
+  for (const f of editableFields) {
+    if (values && typeof values[f.key] === 'string') {
+      update[f.slug] = values[f.key];
+    }
+  }
+  return update;
 }
 
-async function saveOne(api, col, fields, entry, publish) {
-  if (!fields.body) {
-    throw new Error(
-      `Could not auto-detect a body/RichText field on collection ${col.key}. ` +
-        `Add a RichText field or set one matching slug 'page-body'/'body'/'content'.`
-    );
+async function saveOne(api, col, editableFields, entry, publish) {
+  const fieldUpdate = buildFieldUpdate(editableFields, entry.values);
+  if (!Object.keys(fieldUpdate).length) {
+    throw new Error('No editable field values supplied');
   }
-
-  const fieldUpdate = { [fields.body]: entry.content };
-  if (fields.refresh) fieldUpdate[fields.refresh] = new Date().toISOString();
-  if (fields.fingerprint) fieldUpdate[fields.fingerprint] = fingerprint(entry.content);
-  if (fields.version && entry.version) fieldUpdate[fields.version] = entry.version;
-  if (fields.notes && entry.notes !== undefined) fieldUpdate[fields.notes] = entry.notes;
-
   const updated = await api.updateCollectionItem(col.id, entry.itemId, fieldUpdate, !publish);
-  return { itemId: entry.itemId, ok: true, updatedId: updated?.id, applied: Object.keys(fieldUpdate) };
+  return {
+    itemId: entry.itemId,
+    ok: true,
+    updatedId: updated?.id,
+    applied: Object.keys(fieldUpdate),
+  };
 }
 
 module.exports = async (req, res) => {
@@ -54,23 +57,28 @@ module.exports = async (req, res) => {
     const body = await readJsonBody(req);
     const col = getCollection(body.collection);
     if (!col) return res.status(400).json({ error: 'Unknown collection' });
+    if (!isSupported(col.key)) {
+      return res.status(400).json({
+        error: `Collection "${col.key}" has no AI-editable fields configured.`,
+      });
+    }
 
-    const fields = await getFieldMap(col.id);
+    const { fields: editableFields } = getEditableFields(col.key);
     const publish = !!body.publish;
     const api = new WebflowAPI(token);
 
     const entries = Array.isArray(body.items)
       ? body.items
-      : [{ itemId: body.itemId, content: body.content, notes: body.notes, version: body.version }];
+      : [{ itemId: body.itemId, values: body.values }];
 
-    if (!entries.length || !entries.every((e) => e.itemId && typeof e.content === 'string')) {
-      return res.status(400).json({ error: 'itemId and content required for every entry' });
+    if (!entries.length || !entries.every((e) => e.itemId && e.values)) {
+      return res.status(400).json({ error: 'itemId and values required for every entry' });
     }
 
     const results = [];
     for (const entry of entries) {
       try {
-        results.push(await saveOne(api, col, fields, entry, publish));
+        results.push(await saveOne(api, col, editableFields, entry, publish));
       } catch (err) {
         console.error('save error for', entry.itemId, err.response?.data || err.message);
         results.push({ itemId: entry.itemId, ok: false, error: err.message });
@@ -88,7 +96,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    res.status(200).json({ ok: true, fields, results });
+    res.status(200).json({ ok: true, results });
   } catch (err) {
     console.error('save error:', err);
     res.status(500).json({ error: err.message });

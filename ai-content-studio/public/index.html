@@ -16,12 +16,12 @@
   </header>
 
   <main class="layout">
-    <!-- Left: collection + item picker -->
     <aside class="sidebar">
       <div class="field">
         <label>Collection</label>
         <select id="collection-select"></select>
       </div>
+      <div id="collection-note" class="muted small"></div>
       <div class="field">
         <label>Search</label>
         <input type="text" id="search-input" placeholder="Filter by name or slug" />
@@ -36,10 +36,15 @@
       </div>
     </aside>
 
-    <!-- Right: editor -->
     <section class="editor">
       <div id="editor-empty" class="empty">
         Pick an item on the left to get started, or enable <strong>Batch mode</strong> to select multiple.
+      </div>
+
+      <div id="unsupported" class="empty hidden">
+        This collection has no AI-editable fields configured. Only <strong>Skills</strong>
+        and <strong>Certifications</strong> expose <em>Meta Description</em> and
+        <em>Long SEO Description</em> today.
       </div>
 
       <div id="editor-panel" class="hidden">
@@ -59,25 +64,31 @@
           <textarea id="instructions" rows="2" placeholder="e.g. Emphasize e-commerce, keep to 400 words"></textarea>
         </div>
 
-        <div class="split">
-          <div class="pane">
-            <label>Current body (read-only)</label>
-            <div id="current-body" class="readonly-html"></div>
+        <!-- Meta description (short) -->
+        <div class="field-block">
+          <div class="field-block-header">
+            <label>Meta Description <span class="muted small">(plain text, ~150-160 chars)</span></label>
+            <span id="meta-counter" class="muted small">0</span>
           </div>
-          <div class="pane">
-            <label>Draft (editable HTML)</label>
-            <textarea id="draft" rows="20" placeholder="Click Generate to have Claude write a draft..."></textarea>
-            <div class="preview-toggle">
-              <button id="toggle-preview" class="secondary small">Preview</button>
+          <textarea id="meta-input" rows="3" placeholder="Click Generate to have Claude write one..."></textarea>
+        </div>
+
+        <!-- Long SEO description (rich text) -->
+        <div class="field-block">
+          <div class="field-block-header">
+            <label>Long SEO Description <span class="muted small">(HTML)</span></label>
+            <div>
+              <button id="toggle-long-preview" class="secondary small">Preview</button>
             </div>
-            <div id="draft-preview" class="readonly-html hidden"></div>
           </div>
+          <textarea id="long-input" rows="16" placeholder="Click Generate to have Claude write one..."></textarea>
+          <div id="long-preview" class="readonly-html hidden"></div>
         </div>
 
         <div class="feedback">
           <label>Revision feedback</label>
           <div class="row">
-            <input type="text" id="feedback-input" placeholder="e.g. shorten by 30%, more local flavor, add a FAQ" />
+            <input type="text" id="feedback-input" placeholder="e.g. shorten the meta, add a FAQ to the long description" />
             <button id="btn-revise" class="secondary">Revise</button>
           </div>
           <div id="history" class="history"></div>
@@ -95,7 +106,6 @@
     </section>
   </main>
 
-  <!-- Style guide modal -->
   <div id="style-guide-modal" class="modal hidden">
     <div class="modal-inner">
       <div class="modal-header">

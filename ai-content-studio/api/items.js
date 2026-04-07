@@ -1,12 +1,11 @@
 /**
  * List items from a configured collection with simple search / pagination.
- * Uses the auto-detected field map from field-map.js so we don't depend on
- * hard-coded slugs.
+ * Returns a summary of whether each editable field is already populated.
  */
 
 const WebflowAPI = require('../../lib/webflow-api');
 const { cors, getCollection } = require('../lib/config');
-const { getFieldMap } = require('../lib/field-map');
+const { getEditableFields } = require('../lib/editable-fields');
 
 module.exports = async (req, res) => {
   cors(res);
@@ -23,8 +22,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    const fields = await getFieldMap(col.id);
-
+    const { fields } = getEditableFields(col.key);
     const q = (req.query.q || '').toString().toLowerCase().trim();
     const limit = Math.min(parseInt(req.query.limit || '500', 10), 1000);
     const offset = parseInt(req.query.offset || '0', 10);
@@ -36,14 +34,15 @@ module.exports = async (req, res) => {
       .filter((it) => !it.isArchived && !it.fieldData?.isArchived)
       .map((it) => {
         const fd = it.fieldData || {};
+        const populated = {};
+        for (const f of fields) {
+          populated[f.key] = !!fd[f.slug];
+        }
         return {
           id: it.id,
           name: fd.name || '',
           slug: fd.slug || '',
-          hasBody: fields.body ? !!fd[fields.body] : false,
-          aiVersion: fields.version ? fd[fields.version] || '' : '',
-          lastRefresh: fields.refresh ? fd[fields.refresh] || '' : '',
-          aiLock: fields.lock ? !!fd[fields.lock] : false,
+          populated,
         };
       });
 
@@ -55,7 +54,7 @@ module.exports = async (req, res) => {
 
     res.status(200).json({
       collection: col.key,
-      fields,
+      editableFields: fields,
       total: filtered.length,
       offset,
       limit,

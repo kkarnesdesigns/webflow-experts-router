@@ -1,17 +1,18 @@
-/* AI Content Studio - front-end app */
+/* AI Content Studio - front-end app (Meta + Long SEO editor) */
 const API = '/api/ai-studio';
 
 const state = {
   collections: [],
   currentCollection: null,
+  collectionMeta: null,      // { supported, editableFields }
   items: [],
   filtered: [],
   selectedId: null,
   selectedIds: new Set(),
   batchMode: false,
   currentItem: null,
-  history: [],
-  batchResults: new Map(),
+  history: [],               // full prior turns for revision loops
+  batchResults: new Map(),   // itemId -> { status, values }
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -45,13 +46,38 @@ async function loadCollections() {
     .forEach((c) => {
       const opt = document.createElement('option');
       opt.value = c.key;
-      opt.textContent = c.label;
+      opt.textContent = c.supported ? c.label : `${c.label} (no AI fields)`;
       sel.appendChild(opt);
     });
   if (sel.options.length) {
-    state.currentCollection = sel.value;
-    await loadItems();
+    // Prefer a supported collection on first load
+    const firstSupported = data.collections.find((c) => c.configured && c.supported);
+    sel.value = firstSupported ? firstSupported.key : sel.options[0].value;
+    onCollectionChange();
   }
+}
+
+function onCollectionChange() {
+  const key = $('#collection-select').value;
+  state.currentCollection = key;
+  state.collectionMeta = state.collections.find((c) => c.key === key) || null;
+  state.selectedId = null;
+  state.selectedIds.clear();
+  state.batchResults.clear();
+  state.currentItem = null;
+
+  const note = $('#collection-note');
+  if (state.collectionMeta && !state.collectionMeta.supported) {
+    note.textContent = 'No AI-editable fields configured for this collection.';
+  } else if (state.collectionMeta) {
+    const labels = (state.collectionMeta.editableFields || []).map((f) => f.label).join(' + ');
+    note.textContent = labels ? `Editing: ${labels}` : '';
+  } else {
+    note.textContent = '';
+  }
+
+  showEditor(false);
+  loadItems();
 }
 
 // ---------- Items list ----------
@@ -96,27 +122,25 @@ function renderItems() {
     }
 
     const cb = state.batchMode
-      ? `<input type="checkbox" ${state.selectedIds.has(it.id) ? 'checked' : ''} data-id="${it.id}" />`
+      ? `<input type="checkbox" ${state.selectedIds.has(it.id) ? 'checked' : ''} />`
       : '';
 
     const badges = [];
-    if (it.aiLock) badges.push('<span class="badge lock">locked</span>');
-    if (it.hasBody) badges.push('<span class="badge ok">body</span>');
-    if (it.aiVersion) badges.push(`<span class="badge">v${it.aiVersion}</span>`);
+    const pop = it.populated || {};
+    if (pop.meta) badges.push('<span class="badge ok">meta</span>');
+    if (pop.longSeo) badges.push('<span class="badge ok">seo</span>');
 
     row.innerHTML = `${cb}<span class="name">${escapeHtml(it.name)}</span>${badges.join('')}`;
     row.addEventListener('click', (ev) => {
       if (state.batchMode) {
-        if (ev.target.tagName === 'INPUT') return; // let checkbox handler fire
+        if (ev.target.tagName === 'INPUT') return;
         toggleBatchSelect(it.id);
       } else {
         selectItem(it.id);
       }
     });
     const checkbox = row.querySelector('input[type="checkbox"]');
-    if (checkbox) {
-      checkbox.addEventListener('change', () => toggleBatchSelect(it.id));
-    }
+    if (checkbox) checkbox.addEventListener('change', () => toggleBatchSelect(it.id));
     list.appendChild(row);
   }
   $('#items-meta').textContent = state.batchMode
@@ -132,40 +156,60 @@ function toggleBatchSelect(id) {
 }
 
 // ---------- Single item selection ----------
+function showEditor(show) {
+  const supported = state.collectionMeta?.supported !== false;
+  $('#editor-empty').classList.toggle('hidden', show || !supported);
+  $('#unsupported').classList.toggle('hidden', supported);
+  $('#editor-panel').classList.toggle('hidden', !show || !supported);
+}
+
 async function selectItem(id) {
+  if (!state.collectionMeta?.supported) return;
   state.selectedId = id;
   state.history = [];
   renderItems();
-  $('#editor-empty').classList.add('hidden');
-  $('#editor-panel').classList.remove('hidden');
+  showEditor(true);
   $('#batch-panel').classList.add('hidden');
   $('#item-name').textContent = 'Loading…';
   $('#item-meta').textContent = '';
-  $('#current-body').innerHTML = '';
-  $('#draft').value = '';
+  $('#meta-input').value = '';
+  $('#long-input').value = '';
+  updateMetaCounter();
   $('#btn-approve').disabled = true;
   try {
-    const item = await api(
-      `/item-detail?collection=${state.currentCollection}&id=${id}`
-    );
+    const item = await api(`/item-detail?collection=${state.currentCollection}&id=${id}`);
     state.currentItem = item;
     $('#item-name').textContent = item.name || '(unnamed)';
-    const detected = item.fields || {};
-    $('#item-meta').textContent = [
-      item.slug ? `/${item.slug}` : '',
-      item.aiVersion ? `v${item.aiVersion}` : '',
-      item.lastRefresh ? `updated ${new Date(item.lastRefresh).toLocaleDateString()}` : '',
-      detected.body ? `body → ${detected.body}` : 'no body field detected',
-    ]
-      .filter(Boolean)
-      .join(' · ');
-    $('#current-body').innerHTML = item.body || '<em class="muted">empty</em>';
+    $('#item-meta').textContent = item.slug ? `/${item.slug}` : '';
+    $('#meta-input').value = item.values.meta || '';
+    $('#long-input').value = item.values.longSeo || '';
+    updateMetaCounter();
   } catch (e) {
     toast('Error loading item: ' + e.message, 4000);
   }
 }
 
+function updateMetaCounter() {
+  const len = $('#meta-input').value.length;
+  const el = $('#meta-counter');
+  el.textContent = `${len} chars`;
+  el.classList.toggle('warn', len > 0 && (len < 140 || len > 160));
+}
+
 // ---------- Generation ----------
+function getEditedValues() {
+  return {
+    meta: $('#meta-input').value,
+    longSeo: $('#long-input').value,
+  };
+}
+
+function applyValues(values) {
+  if (values.meta !== undefined) $('#meta-input').value = values.meta;
+  if (values.longSeo !== undefined) $('#long-input').value = values.longSeo;
+  updateMetaCounter();
+}
+
 async function generateForCurrent() {
   if (!state.currentItem) return;
   toast('Generating…');
@@ -177,10 +221,10 @@ async function generateForCurrent() {
         collection: state.currentCollection,
         itemId: state.currentItem.id,
         instructions: $('#instructions').value,
-        history: state.history,
+        currentValues: getEditedValues(),
       }),
     });
-    $('#draft').value = data.content;
+    applyValues(data.values);
     state.history = data.turns;
     $('#btn-approve').disabled = false;
     renderHistory();
@@ -199,13 +243,13 @@ async function reviseCurrent() {
   if (!state.history.length) return toast('Generate a draft first');
   toast('Revising…');
   try {
-    // Include the user's current edited draft as the latest assistant turn, so
-    // Claude revises from what the user actually sees.
+    // Reflect any hand edits back into the "assistant" turn so Claude revises
+    // from what the user is currently looking at.
+    const editedAssistant = JSON.stringify(getEditedValues());
     const history = state.history.slice();
-    // Replace last assistant content with whatever is in the editor (user may have hand-edited):
     for (let i = history.length - 1; i >= 0; i--) {
       if (history[i].role === 'assistant') {
-        history[i] = { role: 'assistant', content: $('#draft').value };
+        history[i] = { role: 'assistant', content: editedAssistant };
         break;
       }
     }
@@ -216,13 +260,13 @@ async function reviseCurrent() {
       body: JSON.stringify({
         collection: state.currentCollection,
         itemId: state.currentItem.id,
-        history: history.slice(1), // drop synthetic initial user turn; server rebuilds it
+        // Drop the synthetic initial user turn - server rebuilds it:
+        history: history.slice(1),
       }),
     });
-    // Append feedback + new assistant turn to state history
     state.history.push({ role: 'user', content: fb });
-    state.history.push({ role: 'assistant', content: data.content });
-    $('#draft').value = data.content;
+    state.history.push({ role: 'assistant', content: JSON.stringify(data.values) });
+    applyValues(data.values);
     $('#feedback-input').value = '';
     renderHistory();
     toast('Revised');
@@ -248,9 +292,9 @@ function renderHistory() {
 // ---------- Approve & save ----------
 async function approveCurrent() {
   if (!state.currentItem) return;
-  const content = $('#draft').value.trim();
-  if (!content) return toast('Nothing to save');
-  if (!confirm('Save this content to the Webflow CMS item as a draft?')) return;
+  const values = getEditedValues();
+  if (!values.meta.trim() && !values.longSeo.trim()) return toast('Nothing to save');
+  if (!confirm('Save Meta + Long SEO to Webflow as a draft?')) return;
   $('#btn-approve').disabled = true;
   try {
     await api('/save', {
@@ -258,7 +302,7 @@ async function approveCurrent() {
       body: JSON.stringify({
         collection: state.currentCollection,
         itemId: state.currentItem.id,
-        content,
+        values,
         publish: false,
       }),
     });
@@ -278,8 +322,7 @@ function renderBatchPanel() {
     panel.classList.add('hidden');
     return;
   }
-  $('#editor-empty').classList.add('hidden');
-  $('#editor-panel').classList.remove('hidden');
+  showEditor(true);
   panel.classList.remove('hidden');
 
   const ids = Array.from(state.selectedIds);
@@ -299,7 +342,6 @@ function renderBatchPanel() {
     row.innerHTML = `<span class="name" style="flex:1">${escapeHtml(item.name)}</span><span class="status ${statusClass}">${statusText}</span>`;
     list.appendChild(row);
   }
-
   const anyDone = Array.from(state.batchResults.values()).some((r) => r.status === 'done');
   $('#btn-batch-approve').disabled = !anyDone;
 }
@@ -322,7 +364,7 @@ async function batchGenerate() {
           instructions,
         }),
       });
-      state.batchResults.set(id, { status: 'done', content: data.content });
+      state.batchResults.set(id, { status: 'done', values: data.values });
     } catch (e) {
       state.batchResults.set(id, { status: 'error', error: e.message });
     }
@@ -336,12 +378,12 @@ async function batchGenerate() {
 async function batchApprove() {
   const entries = [];
   for (const [id, result] of state.batchResults) {
-    if (result.status === 'done' && result.content) {
-      entries.push({ itemId: id, content: result.content });
+    if (result.status === 'done' && result.values) {
+      entries.push({ itemId: id, values: result.values });
     }
   }
   if (!entries.length) return toast('No successful drafts to save');
-  if (!confirm(`Save ${entries.length} drafts to Webflow CMS?`)) return;
+  if (!confirm(`Save ${entries.length} drafts to Webflow?`)) return;
   $('#btn-batch-approve').disabled = true;
   try {
     const data = await api('/save', {
@@ -353,8 +395,8 @@ async function batchApprove() {
       }),
     });
     for (const r of data.results) {
-      if (r.ok) state.batchResults.set(r.itemId, { ...state.batchResults.get(r.itemId), status: 'saved' });
-      else state.batchResults.set(r.itemId, { status: 'error', error: r.error });
+      const prev = state.batchResults.get(r.itemId) || {};
+      state.batchResults.set(r.itemId, r.ok ? { ...prev, status: 'saved' } : { status: 'error', error: r.error });
     }
     renderBatchPanel();
     toast('Batch saved');
@@ -377,26 +419,20 @@ async function openStyleGuide() {
     toast('Failed to load style guide: ' + e.message);
   }
 }
-function closeStyleGuide() {
-  $('#style-guide-modal').classList.add('hidden');
-}
+function closeStyleGuide() { $('#style-guide-modal').classList.add('hidden'); }
 async function saveStyleGuide() {
   const content = $('#style-guide-text').value;
   try {
     await api('/style-guide', { method: 'POST', body: JSON.stringify({ content }) });
     $('#style-guide-status').textContent = 'Saved';
     toast('Style guide saved');
-  } catch (e) {
-    toast('Save failed: ' + e.message);
-  }
+  } catch (e) { toast('Save failed: ' + e.message); }
 }
 function handleStyleGuideFile(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
-    $('#style-guide-text').value = reader.result;
-  };
+  reader.onload = () => { $('#style-guide-text').value = reader.result; };
   reader.readAsText(file);
 }
 
@@ -407,13 +443,7 @@ function escapeHtml(s) {
 
 // ---------- Wire up ----------
 function init() {
-  $('#collection-select').addEventListener('change', (e) => {
-    state.currentCollection = e.target.value;
-    state.selectedId = null;
-    state.selectedIds.clear();
-    state.batchResults.clear();
-    loadItems();
-  });
+  $('#collection-select').addEventListener('change', onCollectionChange);
   $('#search-input').addEventListener('input', applySearch);
   $('#refresh-items').addEventListener('click', loadItems);
   $('#select-mode').addEventListener('change', (e) => {
@@ -422,30 +452,29 @@ function init() {
     state.batchResults.clear();
     renderItems();
     renderBatchPanel();
-    if (!state.batchMode) {
-      $('#batch-panel').classList.add('hidden');
-    }
+    if (!state.batchMode) $('#batch-panel').classList.add('hidden');
   });
 
   $('#btn-generate').addEventListener('click', generateForCurrent);
   $('#btn-revise').addEventListener('click', reviseCurrent);
   $('#btn-approve').addEventListener('click', approveCurrent);
+  $('#meta-input').addEventListener('input', updateMetaCounter);
 
   $('#btn-batch-generate').addEventListener('click', batchGenerate);
   $('#btn-batch-approve').addEventListener('click', batchApprove);
 
-  $('#toggle-preview').addEventListener('click', () => {
-    const pv = $('#draft-preview');
-    const ta = $('#draft');
+  $('#toggle-long-preview').addEventListener('click', () => {
+    const pv = $('#long-preview');
+    const ta = $('#long-input');
     if (pv.classList.contains('hidden')) {
       pv.innerHTML = ta.value;
       pv.classList.remove('hidden');
       ta.classList.add('hidden');
-      $('#toggle-preview').textContent = 'Edit';
+      $('#toggle-long-preview').textContent = 'Edit';
     } else {
       pv.classList.add('hidden');
       ta.classList.remove('hidden');
-      $('#toggle-preview').textContent = 'Preview';
+      $('#toggle-long-preview').textContent = 'Preview';
     }
   });
 

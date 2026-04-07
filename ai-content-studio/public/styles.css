@@ -80,6 +80,15 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .muted { color: #6b7280; }
 .small { font-size: 12px; }
 
+.field-block { margin-top: 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+.field-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.field-block label { font-size: 12px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.03em; }
+.field-block textarea { width: 100%; }
+#meta-input { min-height: 60px; }
+#long-input { min-height: 320px; }
+#long-preview { margin-top: 6px; }
+#meta-counter.warn { color: #b91c1c; font-weight: 600; }
+
 .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; z-index: 50; }
 .modal-inner { background: #fff; padding: 20px; border-radius: 10px; width: min(720px, 90vw); max-height: 86vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; }
