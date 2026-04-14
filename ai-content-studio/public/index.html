@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Content Studio</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" />
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <button id="sidebar-toggle" class="icon-btn mobile-only" aria-label="Toggle items">☰</button>
+      <h1>AI Content Studio</h1>
+    </div>
+    <div class="topbar-actions">
+      <button id="open-style-guide" class="secondary">Style Guide</button>
+    </div>
+  </header>
+
+  <div id="sidebar-backdrop" class="backdrop hidden"></div>
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="field">
+        <label>Collection</label>
+        <select id="collection-select"></select>
+      </div>
+      <div id="collection-note" class="muted small"></div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="cms">Browse</button>
+        <button class="tab" data-tab="gsc">GSC</button>
+      </div>
+
+      <!-- CMS browse view -->
+      <div id="tab-cms" class="tab-panel">
+        <div class="field">
+          <label>Search</label>
+          <input type="text" id="search-input" placeholder="Filter by name or slug" />
+        </div>
+        <div class="field row">
+          <label class="inline"><input type="checkbox" id="select-mode" /> Batch mode</label>
+          <button id="refresh-items" class="secondary small">Refresh</button>
+        </div>
+        <div id="items-list" class="items-list"></div>
+        <div class="sidebar-footer">
+          <span id="items-meta" class="muted"></span>
+        </div>
+      </div>
+
+      <!-- GSC view -->
+      <div id="tab-gsc" class="tab-panel hidden">
+        <div class="field">
+          <label>Lookback</label>
+          <select id="gsc-days">
+            <option value="7">7 days</option>
+            <option value="28" selected>28 days</option>
+            <option value="90">90 days</option>
+            <option value="180">180 days</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Sort by (worst first)</label>
+          <select id="gsc-sort">
+            <option value="position">Avg position</option>
+            <option value="ctr">CTR</option>
+            <option value="clicks">Clicks</option>
+            <option value="impressions">Impressions</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Min impressions</label>
+          <input type="number" id="gsc-min-impressions" value="20" min="0" step="10" />
+        </div>
+        <div class="field">
+          <label>URL contains</label>
+          <input type="text" id="gsc-contains" placeholder="e.g. skill or certification" />
+        </div>
+        <button id="gsc-load" class="primary small" style="align-self:flex-start">Fetch from Search Console</button>
+        <div id="gsc-list" class="items-list"></div>
+        <div class="sidebar-footer">
+          <span id="gsc-meta" class="muted"></span>
+        </div>
+      </div>
+    </aside>
+
+    <section class="editor">
+      <div id="editor-empty" class="empty">
+        Pick an item on the left to get started, or enable <strong>Batch mode</strong> to select multiple.
+      </div>
+
+      <div id="unsupported" class="empty hidden">
+        This collection has no AI-editable fields configured. <strong>Skills</strong>,
+        <strong>Certifications</strong>, and <strong>Landing Content</strong> expose
+        <em>Meta Description</em> and <em>Long SEO Description</em> today.
+      </div>
+
+      <div id="editor-panel" class="hidden">
+        <div class="editor-header">
+          <div>
+            <h2 id="item-name">—</h2>
+            <div class="muted small" id="item-meta"></div>
+          </div>
+          <div class="editor-header-actions">
+            <button id="btn-generate" class="primary">Generate</button>
+            <button id="btn-approve" class="success" disabled>Approve & Save to Webflow</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Instructions for Claude (optional)</label>
+          <textarea id="instructions" rows="2" placeholder="e.g. Emphasize e-commerce, keep to 400 words"></textarea>
+        </div>
+
+        <!-- Meta description (short) -->
+        <div class="field-block">
+          <div class="field-block-header">
+            <label>Meta Description <span class="muted small">(plain text, ~150-160 chars)</span></label>
+            <span id="meta-counter" class="muted small">0</span>
+          </div>
+          <textarea id="meta-input" rows="3" placeholder="Click Generate to have Claude write one..."></textarea>
+        </div>
+
+        <!-- Long SEO description (rich text) -->
+        <div class="field-block">
+          <div class="field-block-header">
+            <label>Long SEO Description <span class="muted small">(HTML)</span></label>
+            <div>
+              <button id="toggle-long-source" class="secondary small">Source</button>
+            </div>
+          </div>
+          <div id="long-editor" class="rich-editor"></div>
+          <textarea id="long-input" class="hidden" rows="16" placeholder="Click Generate to have Claude write one..."></textarea>
+        </div>
+
+        <div class="feedback">
+          <label>Revision feedback</label>
+          <div class="row">
+            <input type="text" id="feedback-input" placeholder="e.g. shorten the meta, add a FAQ to the long description" />
+            <button id="btn-revise" class="secondary">Revise</button>
+          </div>
+          <div id="history" class="history"></div>
+        </div>
+
+        <div class="batch-panel hidden" id="batch-panel">
+          <h3>Batch queue</h3>
+          <div id="batch-list"></div>
+          <div class="row">
+            <button id="btn-batch-generate" class="primary">Generate all</button>
+            <button id="btn-batch-approve" class="success" disabled>Approve & Save all</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="style-guide-modal" class="modal hidden">
+    <div class="modal-inner">
+      <div class="modal-header">
+        <h3>Style Guide (Markdown)</h3>
+        <button id="close-style-guide" class="secondary small">Close</button>
+      </div>
+      <p class="muted small">
+        This markdown is injected into every generation request as the system-prompt style guide.
+        Upload a file or paste directly.
+      </p>
+      <input type="file" id="style-guide-file" accept=".md,.markdown,.txt" />
+      <textarea id="style-guide-text" rows="16" placeholder="# Voice & tone..."></textarea>
+      <div class="row">
+        <button id="save-style-guide" class="primary">Save</button>
+        <span id="style-guide-status" class="muted small"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="./app.js"></script>
+</body>
+</html>

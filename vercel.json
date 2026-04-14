@@ -6,7 +6,15 @@
       "use": "@vercel/node"
     },
     {
+      "src": "ai-content-studio/api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "client/**/*",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "ai-content-studio/public/**/*",
       "use": "@vercel/static"
     }
   ],
@@ -34,6 +42,46 @@
     {
       "src": "/api/form-options",
       "dest": "/api/form-options.js"
+    },
+    {
+      "src": "/api/ai-studio/collections",
+      "dest": "/ai-content-studio/api/collections.js"
+    },
+    {
+      "src": "/api/ai-studio/schema",
+      "dest": "/ai-content-studio/api/schema.js"
+    },
+    {
+      "src": "/api/ai-studio/items",
+      "dest": "/ai-content-studio/api/items.js"
+    },
+    {
+      "src": "/api/ai-studio/item-detail",
+      "dest": "/ai-content-studio/api/item-detail.js"
+    },
+    {
+      "src": "/api/ai-studio/style-guide",
+      "dest": "/ai-content-studio/api/style-guide.js"
+    },
+    {
+      "src": "/api/ai-studio/generate",
+      "dest": "/ai-content-studio/api/generate.js"
+    },
+    {
+      "src": "/api/ai-studio/save",
+      "dest": "/ai-content-studio/api/save.js"
+    },
+    {
+      "src": "/api/ai-studio/gsc-pages",
+      "dest": "/ai-content-studio/api/gsc-pages.js"
+    },
+    {
+      "src": "/ai-studio/?",
+      "dest": "/ai-content-studio/public/index.html"
+    },
+    {
+      "src": "/ai-studio/(.*)",
+      "dest": "/ai-content-studio/public/$1"
     },
     {
       "src": "/client/(.*)",
