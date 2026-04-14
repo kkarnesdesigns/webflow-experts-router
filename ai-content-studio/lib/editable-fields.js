@@ -65,8 +65,8 @@ const EDITABLE = {
       },
       {
         key: 'longSeo',
-        slug: 'long-seo-description',
-        label: 'Long SEO Description',
+        slug: 'seo-body',
+        label: 'SEO Body',
         kind: 'long',
         targetMinWords: 300,
         targetMaxWords: 600,
