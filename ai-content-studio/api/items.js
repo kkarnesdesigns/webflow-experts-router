@@ -24,7 +24,9 @@ module.exports = async (req, res) => {
 
     const { fields } = getEditableFields(col.key);
     const q = (req.query.q || '').toString().toLowerCase().trim();
-    const limit = Math.min(parseInt(req.query.limit || '500', 10), 1000);
+    // Webflow Business plan caps collections at 10k items. Allow up to 20k
+    // here so the studio can return a whole collection in one call.
+    const limit = Math.min(parseInt(req.query.limit || '20000', 10), 20000);
     const offset = parseInt(req.query.offset || '0', 10);
 
     const api = new WebflowAPI(token);
@@ -42,6 +44,9 @@ module.exports = async (req, res) => {
           id: it.id,
           name: fd.name || '',
           slug: fd.slug || '',
+          lastUpdated: it.lastUpdated || null,
+          lastPublished: it.lastPublished || null,
+          createdOn: it.createdOn || null,
           populated,
         };
       });

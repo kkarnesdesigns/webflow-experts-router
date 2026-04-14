@@ -16,6 +16,7 @@ const state = {
   tab: 'cms',                // 'cms' | 'gsc'
   gscPages: [],
   gscMeta: null,
+  sortBy: 'updated-desc',    // updated-desc | updated-asc | name-asc | name-desc
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -128,7 +129,7 @@ async function loadItems() {
   if (!col) return;
   $('#items-list').innerHTML = '<div class="muted small" style="padding:10px">Loading…</div>';
   try {
-    const data = await api(`/items?collection=${encodeURIComponent(col)}&limit=500`);
+    const data = await api(`/items?collection=${encodeURIComponent(col)}&limit=20000`);
     state.items = data.items;
     applySearch();
     if (state.gscPages.length) renderGsc();
@@ -139,12 +140,42 @@ async function loadItems() {
 
 function applySearch() {
   const q = $('#search-input').value.toLowerCase().trim();
-  state.filtered = q
+  const base = q
     ? state.items.filter(
         (i) => i.name.toLowerCase().includes(q) || i.slug.toLowerCase().includes(q)
       )
     : state.items.slice();
+  state.filtered = sortItems(base, state.sortBy);
   renderItems();
+}
+
+function sortItems(arr, mode) {
+  const copy = arr.slice();
+  const t = (i) => (i.lastUpdated ? new Date(i.lastUpdated).getTime() : 0);
+  switch (mode) {
+    case 'updated-asc':
+      return copy.sort((a, b) => t(a) - t(b));
+    case 'name-asc':
+      return copy.sort((a, b) => a.name.localeCompare(b.name));
+    case 'name-desc':
+      return copy.sort((a, b) => b.name.localeCompare(a.name));
+    case 'updated-desc':
+    default:
+      return copy.sort((a, b) => t(b) - t(a));
+  }
+}
+
+function formatRelativeTime(iso) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (!then) return '';
+  const diffSec = Math.round((Date.now() - then) / 1000);
+  if (diffSec < 60) return 'just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 86400 * 30) return `${Math.floor(diffSec / 86400)}d ago`;
+  if (diffSec < 86400 * 365) return `${Math.floor(diffSec / 86400 / 30)}mo ago`;
+  return `${Math.floor(diffSec / 86400 / 365)}y ago`;
 }
 
 function renderItems() {
@@ -173,7 +204,12 @@ function renderItems() {
     if (pop.meta) badges.push('<span class="badge ok">meta</span>');
     if (pop.longSeo) badges.push('<span class="badge ok">seo</span>');
 
-    row.innerHTML = `${cb}<span class="name">${escapeHtml(it.name)}</span>${badges.join('')}`;
+    const rel = formatRelativeTime(it.lastUpdated);
+    const when = rel
+      ? `<span class="item-when" title="${escapeHtml(it.lastUpdated || '')}">${escapeHtml(rel)}</span>`
+      : '';
+
+    row.innerHTML = `${cb}<span class="item-main"><span class="name">${escapeHtml(it.name)}</span>${when}</span>${badges.join('')}`;
     row.addEventListener('click', (ev) => {
       if (state.batchMode) {
         if (ev.target.tagName === 'INPUT') return;
@@ -591,6 +627,10 @@ function init() {
   $('#gsc-load').addEventListener('click', loadGsc);
   $('#collection-select').addEventListener('change', onCollectionChange);
   $('#search-input').addEventListener('input', applySearch);
+  $('#sort-select').addEventListener('change', (e) => {
+    state.sortBy = e.target.value;
+    applySearch();
+  });
   $('#refresh-items').addEventListener('click', loadItems);
   $('#select-mode').addEventListener('change', (e) => {
     state.batchMode = e.target.checked;

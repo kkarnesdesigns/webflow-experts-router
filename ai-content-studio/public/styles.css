@@ -39,7 +39,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .items-list .item { padding: 12px; border-bottom: 1px solid #eef0f3; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .items-list .item:hover { background: #eef2ff; }
 .items-list .item.active { background: #dbeafe; }
-.items-list .item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.items-list .item .item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.items-list .item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.items-list .item .item-when { font-size: 11px; color: #6b7280; }
 .items-list .item .badge { font-size: 10px; padding: 2px 6px; border-radius: 999px; background: #e5e7eb; color: #374151; }
 .items-list .item .badge.ok { background: #dcfce7; color: #15803d; }
 .items-list .item .badge.lock { background: #fee2e2; color: #b91c1c; }

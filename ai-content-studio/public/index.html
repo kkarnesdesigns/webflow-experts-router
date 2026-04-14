@@ -39,6 +39,15 @@
           <label>Search</label>
           <input type="text" id="search-input" placeholder="Filter by name or slug" />
         </div>
+        <div class="field">
+          <label>Sort</label>
+          <select id="sort-select">
+            <option value="updated-desc">Last edited (newest)</option>
+            <option value="updated-asc">Last edited (oldest)</option>
+            <option value="name-asc">Name (A→Z)</option>
+            <option value="name-desc">Name (Z→A)</option>
+          </select>
+        </div>
         <div class="field row">
           <label class="inline"><input type="checkbox" id="select-mode" /> Batch mode</label>
           <button id="refresh-items" class="secondary small">Refresh</button>
