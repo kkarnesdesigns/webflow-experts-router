@@ -22,6 +22,7 @@ const { cors, readJsonBody, getCollection } = require('../lib/config');
 const { getEditableFields, isSupported } = require('../lib/editable-fields');
 const { callClaude, buildSystemPrompt, parseJsonResponse, MODEL } = require('../lib/claude');
 const styleGuide = require('../lib/style-guide-store');
+const { findRelevantLinks, formatLinksForPrompt } = require('../lib/link-candidates');
 
 async function loadItem(col, itemId) {
   const token = process.env.WEBFLOW_API_TOKEN;
@@ -30,7 +31,7 @@ async function loadItem(col, itemId) {
   return data;
 }
 
-function buildInitialUserTurn({ col, item, instructions, editableFields, currentValues }) {
+function buildInitialUserTurn({ col, item, instructions, editableFields, currentValues, linkBlock }) {
   const fd = item.fieldData || {};
   const lines = [
     `Collection: ${col.label}`,
@@ -54,6 +55,10 @@ function buildInitialUserTurn({ col, item, instructions, editableFields, current
   for (const f of editableFields) {
     const current = (currentValues && currentValues[f.key]) || fd[f.slug] || '';
     prompt += `### ${f.label} (${f.key})\n${current || '(empty — write a new one)'}\n\n`;
+  }
+
+  if (linkBlock) {
+    prompt += `${linkBlock}\n\n`;
   }
 
   if (instructions && instructions.trim()) {
@@ -86,6 +91,11 @@ module.exports = async (req, res) => {
 
     const system = buildSystemPrompt(styleGuide.read(), editableFields);
 
+    // Only bother fetching link candidates when we're generating a long body.
+    const needsLinks = editableFields.some((f) => f.kind === 'long');
+    const links = needsLinks ? await findRelevantLinks(col.key, item, 6) : [];
+    const linkBlock = formatLinksForPrompt(links);
+
     const messages = [];
     const initialUserTurn = buildInitialUserTurn({
       col,
@@ -93,6 +103,7 @@ module.exports = async (req, res) => {
       instructions: body.instructions,
       editableFields,
       currentValues: body.currentValues,
+      linkBlock,
     });
     messages.push({ role: 'user', content: initialUserTurn });
 
