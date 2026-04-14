@@ -75,20 +75,43 @@ Otherwise pick the one that best fits the skill + location pair.
   "nationwide" instead.
 - No quotes, no HTML, no trailing ellipsis, no "Learn more…" padding.
 
-### Long SEO Body (rich text HTML, ~300–600 words)
+### Long SEO Body (rich text HTML, ~600–900 words)
+
+Follow the existing Gyde landing-page shape exactly:
+
+1. **Intro paragraph** (no heading). 2–4 sentences that name the skill /
+   certification and the location naturally, frame why this expertise
+   matters, and set up the rest of the page. A short one-sentence
+   paragraph after the intro is fine for emphasis.
+2. **Two or three H2 sections.** Each H2 introduces a theme — e.g.
+   "Understanding [X]", "Why [X] Matters", "Essential Skills For [X]
+   Professionals", "Finding the Right [X] on Gyde". Under each H2, use
+   **H3 subsections** when there are 2+ sub-points. Every H3 should have
+   one short paragraph (2–4 sentences) beneath it.
+3. **Exactly one unordered list** somewhere in the body — usually under
+   a "Why it matters" or "Essential skills" H2. List items should use
+   **bold lead-ins** followed by a short supporting sentence:
+   `<li><strong>Lead-in:</strong> Specific detail or benefit.</li>`.
+   Aim for 3–5 items.
+4. **Closing paragraph.** One paragraph that points the reader toward
+   action on Gyde (browsing experts, hiring through Gyde's vetted talent
+   pool). Include exactly **one `<a>` link** to a relevant Gyde URL —
+   most often the skill / certification / location page itself
+   (`https://joingyde.com/hire/{category-slug}/{skill-slug}` or
+   `https://joingyde.com/hire/{skill-slug}/{state-slug}/{city-slug}`),
+   or the top-level directory `https://joingyde.com/hire`. Don't link
+   out to third-party sources.
+
+**Formatting rules:**
 
 - Clean semantic HTML only. No `<html>`, `<body>`, `<script>`, no inline
-  styles, no markdown fences.
-- Allowed tags: `<h2>`, `<h3>`, `<p>`, `<ul>`, `<ol>`, `<li>`, `<strong>`,
-  `<em>`, `<a>`.
-- Open with a paragraph that names the skill and location naturally. Do
-  **not** open with a heading.
-- Include **one H2** (or at most two) for skim-ability, plus **one bullet
-  list** of 3–5 concrete items — typical deliverables, what experts can
-  help with, or what to look for when hiring.
-- Close with a short paragraph that points the reader toward taking action
-  (browsing experts, requesting intros) — but never use phrases like "look
-  no further" or "in conclusion".
+  styles, no `<br>` between paragraphs, no markdown fences.
+- Allowed tags: `<h2>`, `<h3>`, `<p>`, `<ul>`, `<li>`, `<strong>`,
+  `<em>`, `<a>`. Don't use `<h1>` (the CMS renders its own).
+- Don't open the body with a heading — always lead with a paragraph.
+- Don't repeat the skill + location string verbatim in every heading.
+  Vary the phrasing.
+- Never end with "in conclusion" or similar wrap-up phrases.
 
 ### Meta Title, H1, Hero Subhead (when present)
 
