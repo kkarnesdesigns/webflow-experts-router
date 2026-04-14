@@ -7,7 +7,8 @@
     },
     {
       "src": "ai-content-studio/api/**/*.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": { "includeFiles": "ai-content-studio/style-guide.md" }
     },
     {
       "src": "client/**/*",
