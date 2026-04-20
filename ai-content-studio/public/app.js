@@ -126,9 +126,13 @@ async function loadCollections() {
       sel.appendChild(opt);
     });
   if (sel.options.length) {
-    // Prefer a supported collection on first load
+    // Default to Landing Content when it's configured + supported; otherwise
+    // fall back to the first supported collection, then the first configured.
+    const landing = data.collections.find(
+      (c) => c.key === 'landingContent' && c.configured && c.supported
+    );
     const firstSupported = data.collections.find((c) => c.configured && c.supported);
-    sel.value = firstSupported ? firstSupported.key : sel.options[0].value;
+    sel.value = landing?.key || firstSupported?.key || sel.options[0].value;
     onCollectionChange();
   }
 }
