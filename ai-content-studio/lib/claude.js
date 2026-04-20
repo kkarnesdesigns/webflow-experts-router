@@ -57,7 +57,8 @@ ${fieldDocs}
 - Keep it factual. Do not invent statistics, names, certifications, or credentials.
 - Tone: confident, helpful, specific.
 - The meta description must be compelling and include the primary keyword naturally.
-- The long SEO description should be well-structured with subheadings and be genuinely useful to readers.`;
+- The long SEO description should be well-structured with subheadings and be genuinely useful to readers.
+- If the user message includes a "Candidate Gyde links" section, the closing paragraph must link to EXACTLY ONE of those URLs using a plain \`<a href="...">\` tag. Pick the one that offers the same service at a broader location scope than the current page (city → state, state → nationwide). Never invent a URL and never link to the current page itself.`;
 
   if (styleGuide && styleGuide.trim()) {
     return `${base}\n\n## Style Guide\n${styleGuide.trim()}`;
