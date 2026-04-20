@@ -84,7 +84,15 @@ module.exports = async (req, res) => {
       });
     }
 
-    const { fields: editableFields } = getEditableFields(col.key);
+    const { fields: allEditableFields } = getEditableFields(col.key);
+
+    const requested = Array.isArray(body.fields) && body.fields.length
+      ? allEditableFields.filter((f) => body.fields.includes(f.key))
+      : allEditableFields;
+    if (!requested.length) {
+      return res.status(400).json({ error: 'No valid fields selected' });
+    }
+    const editableFields = requested;
 
     if (!body.itemId) return res.status(400).json({ error: 'itemId is required' });
     const item = await loadItem(col, body.itemId);

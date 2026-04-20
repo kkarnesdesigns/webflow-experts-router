@@ -68,6 +68,39 @@ function toast(msg, ms = 2500) {
   toast._t = setTimeout(() => el.classList.add('hidden'), ms);
 }
 
+// Persistent busy indicator for long-running Claude / Webflow work.
+// Shows a pinned status bubble while any async op is running. Supports
+// nested / concurrent operations via a simple counter.
+const busy = {
+  count: 0,
+  show(label) {
+    this.count += 1;
+    const el = $('#busy-indicator');
+    $('#busy-label').textContent = label || 'Working…';
+    el.classList.remove('hidden');
+    document.body.classList.add('is-busy');
+  },
+  update(label) {
+    if (this.count <= 0) return;
+    $('#busy-label').textContent = label || 'Working…';
+  },
+  hide() {
+    this.count = Math.max(0, this.count - 1);
+    if (this.count === 0) {
+      $('#busy-indicator').classList.add('hidden');
+      document.body.classList.remove('is-busy');
+    }
+  },
+  async wrap(label, fn) {
+    this.show(label);
+    try {
+      return await fn();
+    } finally {
+      this.hide();
+    }
+  },
+};
+
 async function api(path, opts = {}) {
   const res = await fetch(`${API}${path}`, {
     ...opts,
@@ -237,13 +270,15 @@ function toggleBatchSelect(id) {
 // ---------- Single item selection ----------
 function showEditor(show) {
   const supported = state.collectionMeta?.supported !== false;
-  $('#editor-empty').classList.toggle('hidden', show || !supported);
+  // Hide the "pick an item" hint in batch mode — the batch panel replaces it.
+  const hideEmpty = show || !supported || state.batchMode;
+  $('#editor-empty').classList.toggle('hidden', hideEmpty);
   $('#unsupported').classList.toggle('hidden', supported);
   $('#editor-panel').classList.toggle('hidden', !show || !supported);
 }
 
 let selectToken = 0;
-async function selectItem(id) {
+async function selectItem(id, opts = {}) {
   if (!state.collectionMeta?.supported) return;
   if (isMobile()) closeSidebar();
   const myToken = ++selectToken;
@@ -252,7 +287,9 @@ async function selectItem(id) {
   state.history = [];
   renderItems();
   showEditor(true);
-  $('#batch-panel').classList.add('hidden');
+  // In batch mode we keep the queue visible alongside the editor; outside
+  // batch mode the panel stays hidden.
+  if (!state.batchMode) $('#batch-panel').classList.add('hidden');
   $('#item-name').textContent = 'Loading…';
   $('#item-meta').textContent = '';
   $('#meta-input').value = '';
@@ -271,9 +308,15 @@ async function selectItem(id) {
     state.currentItem = item;
     $('#item-name').textContent = item.name || '(unnamed)';
     $('#item-meta').textContent = item.slug ? `/${item.slug}` : '';
-    $('#meta-input').value = item.values.meta || '';
-    setLongHtml(item.values.longSeo || '');
+    const override = opts.overrideValues;
+    $('#meta-input').value = (override?.meta ?? item.values.meta) || '';
+    setLongHtml((override?.longSeo ?? item.values.longSeo) || '');
     updateMetaCounter();
+    if (override && (override.meta || override.longSeo)) {
+      // User is reviewing a generated draft from the batch queue — let them
+      // approve right away without regenerating.
+      $('#btn-approve').disabled = false;
+    }
   } catch (e) {
     if (myToken === selectToken) toast('Error loading item: ' + e.message, 4000);
   }
@@ -300,30 +343,48 @@ function applyValues(values) {
   updateMetaCounter();
 }
 
-async function generateForCurrent() {
+async function generateForCurrent(fields) {
   if (!state.currentItem) return;
-  toast('Generating…');
-  $('#btn-generate').disabled = true;
-  try {
-    const data = await api('/generate', {
-      method: 'POST',
-      body: JSON.stringify({
+  const label = !fields
+    ? 'Generating meta + long SEO…'
+    : fields.length === 1 && fields[0] === 'meta'
+    ? 'Generating meta description…'
+    : fields.length === 1 && fields[0] === 'longSeo'
+    ? 'Generating long SEO description…'
+    : 'Generating…';
+  toast(label);
+  setGenerateButtonsDisabled(true);
+  await busy.wrap(label, async () => {
+    try {
+      const payload = {
         collection: state.currentCollection,
         itemId: state.currentItem.id,
         instructions: $('#instructions').value,
         currentValues: getEditedValues(),
-      }),
-    });
-    applyValues(data.values);
-    state.history = data.turns;
-    $('#btn-approve').disabled = false;
-    renderHistory();
-    toast('Draft ready');
-  } catch (e) {
-    toast('Generate failed: ' + e.message, 4500);
-  } finally {
-    $('#btn-generate').disabled = false;
-  }
+      };
+      if (fields && fields.length) payload.fields = fields;
+      const data = await api('/generate', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      // Partial generates merge into whatever is already on screen.
+      applyValues(data.values);
+      state.history = data.turns;
+      $('#btn-approve').disabled = false;
+      renderHistory();
+      toast('Draft ready');
+    } catch (e) {
+      toast('Generate failed: ' + e.message, 4500);
+    } finally {
+      setGenerateButtonsDisabled(false);
+    }
+  });
+}
+
+function setGenerateButtonsDisabled(disabled) {
+  $('#btn-generate').disabled = disabled;
+  $('#btn-generate-meta').disabled = disabled;
+  $('#btn-generate-long').disabled = disabled;
 }
 
 async function reviseCurrent() {
@@ -332,37 +393,39 @@ async function reviseCurrent() {
   if (!fb) return toast('Enter feedback first');
   if (!state.history.length) return toast('Generate a draft first');
   toast('Revising…');
-  try {
-    // Reflect any hand edits back into the "assistant" turn so Claude revises
-    // from what the user is currently looking at.
-    const editedAssistant = JSON.stringify(getEditedValues());
-    const history = state.history.slice();
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].role === 'assistant') {
-        history[i] = { role: 'assistant', content: editedAssistant };
-        break;
+  await busy.wrap('Revising…', async () => {
+    try {
+      // Reflect any hand edits back into the "assistant" turn so Claude revises
+      // from what the user is currently looking at.
+      const editedAssistant = JSON.stringify(getEditedValues());
+      const history = state.history.slice();
+      for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].role === 'assistant') {
+          history[i] = { role: 'assistant', content: editedAssistant };
+          break;
+        }
       }
-    }
-    history.push({ role: 'user', content: fb });
+      history.push({ role: 'user', content: fb });
 
-    const data = await api('/generate', {
-      method: 'POST',
-      body: JSON.stringify({
-        collection: state.currentCollection,
-        itemId: state.currentItem.id,
-        // Drop the synthetic initial user turn - server rebuilds it:
-        history: history.slice(1),
-      }),
-    });
-    state.history.push({ role: 'user', content: fb });
-    state.history.push({ role: 'assistant', content: JSON.stringify(data.values) });
-    applyValues(data.values);
-    $('#feedback-input').value = '';
-    renderHistory();
-    toast('Revised');
-  } catch (e) {
-    toast('Revise failed: ' + e.message, 4500);
-  }
+      const data = await api('/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          collection: state.currentCollection,
+          itemId: state.currentItem.id,
+          // Drop the synthetic initial user turn - server rebuilds it:
+          history: history.slice(1),
+        }),
+      });
+      state.history.push({ role: 'user', content: fb });
+      state.history.push({ role: 'assistant', content: JSON.stringify(data.values) });
+      applyValues(data.values);
+      $('#feedback-input').value = '';
+      renderHistory();
+      toast('Revised');
+    } catch (e) {
+      toast('Revise failed: ' + e.message, 4500);
+    }
+  });
 }
 
 function renderHistory() {
@@ -384,25 +447,35 @@ async function approveCurrent() {
   if (!state.currentItem) return;
   const values = getEditedValues();
   if (!values.meta.trim() && !values.longSeo.trim()) return toast('Nothing to save');
-  if (!confirm('Save Meta + Long SEO to Webflow as a draft?')) return;
+  if (!confirm('Publish Meta + Long SEO live to Webflow?')) return;
   $('#btn-approve').disabled = true;
-  try {
-    await api('/save', {
-      method: 'POST',
-      body: JSON.stringify({
-        collection: state.currentCollection,
-        itemId: state.currentItem.id,
-        values,
-        publish: false,
-      }),
-    });
-    toast('Saved to Webflow ✓');
-    await loadItems();
-  } catch (e) {
-    toast('Save failed: ' + e.message, 5000);
-  } finally {
-    $('#btn-approve').disabled = false;
-  }
+  const itemId = state.currentItem.id;
+  await busy.wrap('Publishing to Webflow…', async () => {
+    try {
+      await api('/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          collection: state.currentCollection,
+          itemId,
+          values,
+          publish: true,
+        }),
+      });
+      toast('Published ✓');
+      // If this item was part of a batch queue, mark it saved so the panel
+      // and "approve all" button stay in sync.
+      if (state.batchResults.has(itemId)) {
+        const prev = state.batchResults.get(itemId) || {};
+        state.batchResults.set(itemId, { ...prev, status: 'saved' });
+        renderBatchPanel();
+      }
+      await loadItems();
+    } catch (e) {
+      toast('Publish failed: ' + e.message, 5000);
+    } finally {
+      $('#btn-approve').disabled = false;
+    }
+  });
 }
 
 // ---------- Batch ----------
@@ -412,28 +485,55 @@ function renderBatchPanel() {
     panel.classList.add('hidden');
     return;
   }
-  showEditor(true);
   panel.classList.remove('hidden');
 
   const ids = Array.from(state.selectedIds);
   const list = $('#batch-list');
   list.innerHTML = '';
   if (!ids.length) {
-    list.innerHTML = '<div class="muted small" style="padding:10px">Select items on the left.</div>';
+    list.innerHTML = '<div class="muted small" style="padding:10px">Select items from the sidebar to queue them.</div>';
   }
+  let doneCount = 0;
+  let savedCount = 0;
+  let runningCount = 0;
   for (const id of ids) {
     const item = state.items.find((i) => i.id === id);
     if (!item) continue;
     const row = document.createElement('div');
     row.className = 'batch-item';
     const result = state.batchResults.get(id);
-    const statusClass = result?.status || 'pending';
-    const statusText = result?.status || 'pending';
-    row.innerHTML = `<span class="name" style="flex:1">${escapeHtml(item.name)}</span><span class="status ${statusClass}">${statusText}</span>`;
+    const status = result?.status || 'pending';
+    if (status === 'done') doneCount++;
+    if (status === 'saved') savedCount++;
+    if (status === 'running') runningCount++;
+    row.classList.add(status);
+    if (state.selectedId === id && state.currentItem) row.classList.add('active');
+    const actionable = status === 'done' || status === 'saved' || status === 'error';
+    row.innerHTML = `<span class="name" style="flex:1">${escapeHtml(item.name)}</span><span class="status ${status}">${status}</span>`;
+    if (actionable) {
+      row.title = status === 'error'
+        ? (result?.error || 'Generation failed')
+        : 'Click to review and approve';
+      row.addEventListener('click', () => openBatchItem(id));
+    } else {
+      row.style.cursor = 'default';
+    }
     list.appendChild(row);
   }
-  const anyDone = Array.from(state.batchResults.values()).some((r) => r.status === 'done');
-  $('#btn-batch-approve').disabled = !anyDone;
+
+  const parts = [`${ids.length} queued`];
+  if (runningCount) parts.push(`${runningCount} running`);
+  if (doneCount) parts.push(`${doneCount} ready`);
+  if (savedCount) parts.push(`${savedCount} published`);
+  $('#batch-meta').textContent = parts.join(' · ');
+  $('#btn-batch-approve').disabled = doneCount === 0;
+}
+
+async function openBatchItem(id) {
+  const result = state.batchResults.get(id);
+  if (!result || result.status === 'pending' || result.status === 'running') return;
+  await selectItem(id, { overrideValues: result.values });
+  renderBatchPanel();
 }
 
 async function batchGenerate() {
@@ -442,27 +542,41 @@ async function batchGenerate() {
   $('#btn-batch-generate').disabled = true;
   const instructions = $('#instructions').value;
 
+  // Seed every queued row as pending so the list reflects the plan.
   for (const id of ids) {
-    state.batchResults.set(id, { status: 'running' });
-    renderBatchPanel();
-    try {
-      const data = await api('/generate', {
-        method: 'POST',
-        body: JSON.stringify({
-          collection: state.currentCollection,
-          itemId: id,
-          instructions,
-        }),
-      });
-      state.batchResults.set(id, { status: 'done', values: data.values });
-    } catch (e) {
-      state.batchResults.set(id, { status: 'error', error: e.message });
+    if (!state.batchResults.has(id)) state.batchResults.set(id, { status: 'pending' });
+  }
+  renderBatchPanel();
+
+  busy.show(`Generating 1 of ${ids.length}…`);
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      const item = state.items.find((it) => it.id === id);
+      busy.update(`Generating ${i + 1} of ${ids.length}${item ? ` — ${item.name}` : ''}`);
+      state.batchResults.set(id, { status: 'running' });
+      renderBatchPanel();
+      try {
+        const data = await api('/generate', {
+          method: 'POST',
+          body: JSON.stringify({
+            collection: state.currentCollection,
+            itemId: id,
+            instructions,
+          }),
+        });
+        state.batchResults.set(id, { status: 'done', values: data.values });
+      } catch (e) {
+        state.batchResults.set(id, { status: 'error', error: e.message });
+      }
+      renderBatchPanel();
     }
-    renderBatchPanel();
+  } finally {
+    busy.hide();
+    $('#btn-batch-generate').disabled = false;
   }
 
-  $('#btn-batch-generate').disabled = false;
-  toast('Batch generation complete');
+  toast('Batch generation complete — click any row to review');
 }
 
 async function batchApprove() {
@@ -472,30 +586,32 @@ async function batchApprove() {
       entries.push({ itemId: id, values: result.values });
     }
   }
-  if (!entries.length) return toast('No successful drafts to save');
-  if (!confirm(`Save ${entries.length} drafts to Webflow?`)) return;
+  if (!entries.length) return toast('No drafts ready to publish');
+  if (!confirm(`Publish ${entries.length} drafts live to Webflow?`)) return;
   $('#btn-batch-approve').disabled = true;
-  try {
-    const data = await api('/save', {
-      method: 'POST',
-      body: JSON.stringify({
-        collection: state.currentCollection,
-        items: entries,
-        publish: false,
-      }),
-    });
-    for (const r of data.results) {
-      const prev = state.batchResults.get(r.itemId) || {};
-      state.batchResults.set(r.itemId, r.ok ? { ...prev, status: 'saved' } : { status: 'error', error: r.error });
+  await busy.wrap(`Publishing ${entries.length} items…`, async () => {
+    try {
+      const data = await api('/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          collection: state.currentCollection,
+          items: entries,
+          publish: true,
+        }),
+      });
+      for (const r of data.results) {
+        const prev = state.batchResults.get(r.itemId) || {};
+        state.batchResults.set(r.itemId, r.ok ? { ...prev, status: 'saved' } : { status: 'error', error: r.error });
+      }
+      renderBatchPanel();
+      toast('Batch published ✓');
+      await loadItems();
+    } catch (e) {
+      toast('Batch publish failed: ' + e.message, 5000);
+    } finally {
+      $('#btn-batch-approve').disabled = false;
     }
-    renderBatchPanel();
-    toast('Batch saved');
-    await loadItems();
-  } catch (e) {
-    toast('Batch save failed: ' + e.message, 5000);
-  } finally {
-    $('#btn-batch-approve').disabled = false;
-  }
+  });
 }
 
 // ---------- Style guide ----------
@@ -636,12 +752,24 @@ function init() {
     state.batchMode = e.target.checked;
     state.selectedIds.clear();
     state.batchResults.clear();
+    // Leaving batch mode: drop any queue-loaded draft from the editor so the
+    // next single-item click starts clean.
+    if (!state.batchMode) {
+      state.currentItem = null;
+      state.selectedId = null;
+      showEditor(false);
+    } else {
+      // Entering batch mode: clear the single-item editor, the queue replaces it.
+      showEditor(false);
+    }
     renderItems();
     renderBatchPanel();
     if (!state.batchMode) $('#batch-panel').classList.add('hidden');
   });
 
-  $('#btn-generate').addEventListener('click', generateForCurrent);
+  $('#btn-generate').addEventListener('click', () => generateForCurrent());
+  $('#btn-generate-meta').addEventListener('click', () => generateForCurrent(['meta']));
+  $('#btn-generate-long').addEventListener('click', () => generateForCurrent(['longSeo']));
   $('#btn-revise').addEventListener('click', reviseCurrent);
   $('#btn-approve').addEventListener('click', approveCurrent);
   $('#meta-input').addEventListener('input', updateMetaCounter);

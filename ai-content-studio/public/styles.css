@@ -114,6 +114,20 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 16px; border-radius: 6px; font-size: 13px; z-index: 60; box-shadow: 0 6px 24px rgba(0,0,0,0.2); max-width: 90vw; text-align: center; }
 
+.busy { position: fixed; top: 69px; right: 16px; background: #0f172a; color: #fff; padding: 10px 14px; border-radius: 8px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; z-index: 55; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); }
+.busy-spinner { width: 14px; height: 14px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: busy-spin 0.7s linear infinite; }
+@keyframes busy-spin { to { transform: rotate(360deg); } }
+body.is-busy { cursor: progress; }
+
+.batch-panel-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.batch-panel-header h3 { font-size: 14px; }
+.batch-hint { margin: 0 0 10px; }
+#batch-list .batch-item { cursor: pointer; transition: background 0.1s ease; }
+#batch-list .batch-item:hover { background: #eef2ff; }
+#batch-list .batch-item.active { background: #dbeafe; }
+#batch-list .batch-item.pending { opacity: 0.75; }
+#batch-list .batch-item .status.pending { background: #e5e7eb; color: #374151; }
+
 /* ---------- Tablet ---------- */
 @media (max-width: 900px) {
   .layout { grid-template-columns: 260px 1fr; }

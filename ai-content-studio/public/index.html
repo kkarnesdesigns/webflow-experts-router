@@ -105,6 +105,22 @@
         <em>Meta Description</em> and <em>Long SEO Description</em> today.
       </div>
 
+      <div class="batch-panel hidden" id="batch-panel">
+        <div class="batch-panel-header">
+          <h3>Batch queue</h3>
+          <span id="batch-meta" class="muted small"></span>
+        </div>
+        <p class="muted small batch-hint">
+          Select items from the sidebar, hit Generate all, then click any row to
+          review and approve individually — or publish the whole batch at once.
+        </p>
+        <div id="batch-list"></div>
+        <div class="row">
+          <button id="btn-batch-generate" class="primary">Generate all</button>
+          <button id="btn-batch-approve" class="success" disabled>Approve &amp; Publish all</button>
+        </div>
+      </div>
+
       <div id="editor-panel" class="hidden">
         <div class="editor-header">
           <div>
@@ -112,8 +128,10 @@
             <div class="muted small" id="item-meta"></div>
           </div>
           <div class="editor-header-actions">
-            <button id="btn-generate" class="primary">Generate</button>
-            <button id="btn-approve" class="success" disabled>Approve & Save to Webflow</button>
+            <button id="btn-generate" class="primary">Generate both</button>
+            <button id="btn-generate-meta" class="secondary">Meta only</button>
+            <button id="btn-generate-long" class="secondary">Long SEO only</button>
+            <button id="btn-approve" class="success" disabled>Approve &amp; Publish</button>
           </div>
         </div>
 
@@ -151,15 +169,6 @@
           </div>
           <div id="history" class="history"></div>
         </div>
-
-        <div class="batch-panel hidden" id="batch-panel">
-          <h3>Batch queue</h3>
-          <div id="batch-list"></div>
-          <div class="row">
-            <button id="btn-batch-generate" class="primary">Generate all</button>
-            <button id="btn-batch-approve" class="success" disabled>Approve & Save all</button>
-          </div>
-        </div>
       </div>
     </section>
   </main>
@@ -184,6 +193,10 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+  <div id="busy-indicator" class="busy hidden" role="status" aria-live="polite">
+    <span class="busy-spinner" aria-hidden="true"></span>
+    <span id="busy-label">Working…</span>
+  </div>
   <script src="/ai-studio/app.js"></script>
 </body>
 </html>
