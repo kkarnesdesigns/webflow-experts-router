@@ -58,12 +58,34 @@ ${fieldDocs}
 - Tone: confident, helpful, specific.
 - The meta description must be compelling and include the primary keyword naturally.
 - The long SEO description should be well-structured with subheadings and be genuinely useful to readers.
+- In the long SEO HTML, insert an empty spacer paragraph (\`<p><br></p>\`) between every adjacent pair of block elements — between paragraphs, between a paragraph and a heading, between two headings, and around lists. This creates a visible blank line on the rendered Webflow page.
 - If the user message includes a "Candidate Gyde links" section, the closing paragraph must link to EXACTLY ONE of those URLs using a plain \`<a href="...">\` tag. Pick the one that offers the same service at a broader location scope than the current page (city → state, state → nationwide). Never invent a URL and never link to the current page itself.`;
 
   if (styleGuide && styleGuide.trim()) {
     return `${base}\n\n## Style Guide\n${styleGuide.trim()}`;
   }
   return base;
+}
+
+/**
+ * Insert `<p><br></p>` spacer paragraphs between top-level block elements if
+ * they're missing. Belt-and-suspenders for the system-prompt rule — Claude
+ * sometimes drops spacers, and Webflow's rich text renderer relies on them
+ * for visible paragraph separation.
+ */
+function addParagraphSpacing(html) {
+  if (!html || typeof html !== 'string') return html;
+  const SPACER = '<p><br></p>';
+  // Close-open pairs between adjacent block elements. We only target the
+  // outer block set (h2/h3/p/ul/ol/blockquote) so nested inline tags stay
+  // untouched. The spacer is skipped when one already follows.
+  const blockClose = '(?:p|h2|h3|h4|ul|ol|blockquote)';
+  const blockOpen = '(?:p|h2|h3|h4|ul|ol|blockquote)';
+  const re = new RegExp(
+    `(</${blockClose}>)\\s*(?!<p[^>]*>\\s*<br\\s*/?>\\s*</p>)(<${blockOpen}\\b)`,
+    'gi'
+  );
+  return html.replace(re, `$1${SPACER}$2`);
 }
 
 /**
@@ -87,4 +109,4 @@ function parseJsonResponse(text) {
   }
 }
 
-module.exports = { callClaude, buildSystemPrompt, parseJsonResponse, MODEL };
+module.exports = { callClaude, buildSystemPrompt, parseJsonResponse, addParagraphSpacing, MODEL };

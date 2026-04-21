@@ -20,7 +20,13 @@
 const WebflowAPI = require('../../lib/webflow-api');
 const { cors, readJsonBody, getCollection } = require('../lib/config');
 const { getEditableFields, isSupported } = require('../lib/editable-fields');
-const { callClaude, buildSystemPrompt, parseJsonResponse, MODEL } = require('../lib/claude');
+const {
+  callClaude,
+  buildSystemPrompt,
+  parseJsonResponse,
+  addParagraphSpacing,
+  MODEL,
+} = require('../lib/claude');
 const styleGuide = require('../lib/style-guide-store');
 const { findRelevantLinks, formatLinksForPrompt } = require('../lib/link-candidates');
 
@@ -130,10 +136,14 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Only keep the keys we asked for.
+    // Only keep the keys we asked for. Long-form fields get spacer paragraphs
+    // inserted between blocks so the rendered Webflow page has visible breaks
+    // between paragraphs/headers regardless of what Claude returned.
     const values = {};
     for (const f of editableFields) {
-      values[f.key] = typeof parsed[f.key] === 'string' ? parsed[f.key] : '';
+      let value = typeof parsed[f.key] === 'string' ? parsed[f.key] : '';
+      if (f.kind === 'long' && value) value = addParagraphSpacing(value);
+      values[f.key] = value;
     }
 
     res.status(200).json({
