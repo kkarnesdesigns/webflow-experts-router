@@ -68,24 +68,20 @@ ${fieldDocs}
 }
 
 /**
- * Insert `<p><br></p>` spacer paragraphs between top-level block elements if
- * they're missing. Belt-and-suspenders for the system-prompt rule — Claude
- * sometimes drops spacers, and Webflow's rich text renderer relies on them
- * for visible paragraph separation.
+ * Normalise spacer paragraphs in a long-SEO HTML body.
+ *
+ * Strips any existing `<p><br></p>` / `<p>&nbsp;</p>` spacers, then inserts
+ * exactly one between every adjacent pair of block elements. Idempotent —
+ * running it twice produces the same output — so we don't double up when
+ * Claude already added spacers itself.
  */
 function addParagraphSpacing(html) {
   if (!html || typeof html !== 'string') return html;
-  const SPACER = '<p><br></p>';
-  // Close-open pairs between adjacent block elements. We only target the
-  // outer block set (h2/h3/p/ul/ol/blockquote) so nested inline tags stay
-  // untouched. The spacer is skipped when one already follows.
-  const blockClose = '(?:p|h2|h3|h4|ul|ol|blockquote)';
-  const blockOpen = '(?:p|h2|h3|h4|ul|ol|blockquote)';
-  const re = new RegExp(
-    `(</${blockClose}>)\\s*(?!<p[^>]*>\\s*<br\\s*/?>\\s*</p>)(<${blockOpen}\\b)`,
-    'gi'
-  );
-  return html.replace(re, `$1${SPACER}$2`);
+  const blocks = '(?:p|h2|h3|h4|ul|ol|blockquote)';
+  const existingSpacer = /<p[^>]*>\s*(?:<br\s*\/?\s*>|&nbsp;|\s)*\s*<\/p>/gi;
+  const stripped = html.replace(existingSpacer, '');
+  const adjacent = new RegExp(`(</${blocks}>)\\s*(<${blocks}\\b)`, 'gi');
+  return stripped.replace(adjacent, `$1<p><br></p>$2`);
 }
 
 /**
