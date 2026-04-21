@@ -95,12 +95,15 @@ Follow the existing Gyde landing-page shape exactly:
    Aim for 3–5 items.
 4. **Closing paragraph.** One paragraph that points the reader toward
    action on Gyde (browsing experts, hiring through Gyde's vetted talent
-   pool). Include exactly **one `<a>` link** to a relevant Gyde URL —
-   most often the skill / certification / location page itself
-   (`https://joingyde.com/hire/{category-slug}/{skill-slug}` or
-   `https://joingyde.com/hire/{skill-slug}/{state-slug}/{city-slug}`),
-   or the top-level directory `https://joingyde.com/hire`. Don't link
-   out to third-party sources.
+   pool). Include **2–3 `<a>` links** to related Gyde pages picked from
+   the "Candidate Gyde links" list supplied in the user message — each
+   link should use natural anchor text woven into the sentence, not
+   stacked at the end. Prefer links that offer the same service at a
+   broader location than the current page (e.g. from a city page, link
+   up to the state-level page for the same service). Never invent a URL,
+   never link to the current page itself, and don't link out to
+   third-party sources. Use the `/hire` root only as a last-resort
+   fallback when no better candidate is supplied.
 
 **Formatting rules:**
 

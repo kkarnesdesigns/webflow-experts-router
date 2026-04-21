@@ -58,8 +58,8 @@ ${fieldDocs}
 - Tone: confident, helpful, specific.
 - The meta description must be compelling and include the primary keyword naturally.
 - The long SEO description should be well-structured with subheadings and be genuinely useful to readers.
-- In the long SEO HTML, insert an empty spacer paragraph (\`<p><br></p>\`) between every adjacent pair of block elements — between paragraphs, between a paragraph and a heading, between two headings, and around lists. This creates a visible blank line on the rendered Webflow page.
-- If the user message includes a "Candidate Gyde links" section, the closing paragraph must link to EXACTLY ONE of those URLs using a plain \`<a href="...">\` tag. Pick the one that offers the same service at a broader location scope than the current page (city → state, state → nationwide). Never invent a URL and never link to the current page itself.`;
+- In the long SEO HTML, insert an empty spacer paragraph (\`<p><br></p>\`) immediately after every closing \`</p>\` to create a visible blank line before the next block. Do NOT insert a spacer after headings (\`</h2>\`, \`</h3>\`, \`</h4>\`) or between a heading and the paragraph that follows it.
+- If the user message includes a "Candidate Gyde links" section, the closing paragraph must include **2–3** links picked from that list, each as a plain \`<a href="...">\` tag with natural anchor text woven into the sentence. Prefer pages at a BROADER location scope than the current page (city → state, state → nationwide). Never invent a URL and never link to the current page itself. The \`/hire\` fallback is only acceptable if no better candidate is supplied.`;
 
   if (styleGuide && styleGuide.trim()) {
     return `${base}\n\n## Style Guide\n${styleGuide.trim()}`;
@@ -70,18 +70,19 @@ ${fieldDocs}
 /**
  * Normalise spacer paragraphs in a long-SEO HTML body.
  *
- * Strips any existing `<p><br></p>` / `<p>&nbsp;</p>` spacers, then inserts
- * exactly one between every adjacent pair of block elements. Idempotent —
- * running it twice produces the same output — so we don't double up when
- * Claude already added spacers itself.
+ * Strips any existing empty spacer paragraphs, then inserts exactly one
+ * `<p><br></p>` after each closing `</p>` that is followed by another block
+ * element. Headings (`</h2>`, `</h3>`, `</h4>`) intentionally get no spacer
+ * after them — the heading already provides visual separation above the
+ * paragraph that follows. Idempotent: running twice yields the same output.
  */
 function addParagraphSpacing(html) {
   if (!html || typeof html !== 'string') return html;
-  const blocks = '(?:p|h2|h3|h4|ul|ol|blockquote)';
+  const nextBlock = '(?:p|h2|h3|h4|ul|ol|blockquote)';
   const existingSpacer = /<p[^>]*>\s*(?:<br\s*\/?\s*>|&nbsp;|\s)*\s*<\/p>/gi;
   const stripped = html.replace(existingSpacer, '');
-  const adjacent = new RegExp(`(</${blocks}>)\\s*(<${blocks}\\b)`, 'gi');
-  return stripped.replace(adjacent, `$1<p><br></p>$2`);
+  const afterParagraph = new RegExp(`(</p>)\\s*(<${nextBlock}\\b)`, 'gi');
+  return stripped.replace(afterParagraph, `$1<p><br></p>$2`);
 }
 
 /**

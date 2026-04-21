@@ -107,7 +107,7 @@ module.exports = async (req, res) => {
 
     // Only bother fetching link candidates when we're generating a long body.
     const needsLinks = editableFields.some((f) => f.kind === 'long');
-    const links = needsLinks ? await findRelevantLinks(col.key, item, 6) : [];
+    const links = needsLinks ? await findRelevantLinks(col.key, item, 10) : [];
     const linkBlock = formatLinksForPrompt(links);
 
     const messages = [];

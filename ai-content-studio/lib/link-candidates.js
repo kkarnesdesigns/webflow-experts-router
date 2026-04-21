@@ -1,27 +1,35 @@
 /**
- * Fetch Gyde SEO sitemap + route manifest and find the best "broader" internal
- * link for the closing paragraph of a long SEO body.
+ * Build a shortlist of internal Gyde URLs to link to from the closing
+ * paragraph of a long-SEO generation.
+ *
+ * Sources:
+ *   - `sitemap-store`  — authoritative list of URLs actually published on
+ *                        seo.joingyde.com. Every recommendation must be in
+ *                        the sitemap, so we never point Claude at a 404.
+ *   - `/api/route-manifest` — typed + ID-enriched routes from the router
+ *                             project. Used to look up category / state /
+ *                             city relationships the sitemap alone can't
+ *                             describe by path shape.
  *
  * Strategy:
- *   1. Pull the published sitemap (https://seo.joingyde.com/api/sitemap.xml)
- *      so the candidate pool is only URLs that are actually live and indexed.
- *   2. Pull the route manifest so we can type each path (skill / state+cat /
- *      state+city+cat, etc.) and match against the CMS item's ID refs.
- *   3. Intersect the two: manifest routes whose normalized path is in the
- *      sitemap are our candidate set.
- *   4. Score candidates toward **same service, less specific location** — e.g.
- *      from a city page, prefer the state version; from a state page, prefer
- *      the plain service page. Never recommend the item's own URL.
+ *   1. Load both sources. Keep only manifest routes whose path is in the
+ *      sitemap.
+ *   2. Resolve the current CMS item's `categoryId` by looking up its skill
+ *      or certification in the manifest (landingContent items only carry
+ *      skill-ref / cert-ref, not the parent category).
+ *   3. Score candidates toward "same service, broader location", plus a
+ *      category-level tier so skill items can hand off to their state or
+ *      city category roll-up (the only location pages that actually exist
+ *      in the sitemap).
+ *   4. Return up to `limit` ranked candidates (default 8) so the prompt has
+ *      enough variety to include 2-3 links in the closing paragraph.
  */
+
+const sitemapStore = require('./sitemap-store');
 
 let manifestCache = null;
 let manifestFetchedAt = 0;
-let sitemapCache = null;
-let sitemapFetchedAt = 0;
-const CACHE_TTL_MS = 10 * 60 * 1000;
-
-const SITEMAP_URL =
-  process.env.SEO_SITEMAP_URL || 'https://seo.joingyde.com/api/sitemap.xml';
+const MANIFEST_TTL_MS = 10 * 60 * 1000;
 
 function manifestUrl() {
   return (
@@ -35,12 +43,11 @@ function siteBaseUrl() {
 }
 
 function normalizePath(p) {
-  if (!p) return '';
-  return String(p).replace(/\/+$/, '').toLowerCase();
+  return sitemapStore.normalizePath(p);
 }
 
 async function loadManifest() {
-  if (manifestCache && Date.now() - manifestFetchedAt < CACHE_TTL_MS) {
+  if (manifestCache && Date.now() - manifestFetchedAt < MANIFEST_TTL_MS) {
     return manifestCache;
   }
   try {
@@ -50,33 +57,6 @@ async function loadManifest() {
     manifestCache = json?.routes || null;
     manifestFetchedAt = Date.now();
     return manifestCache;
-  } catch (_) {
-    return null;
-  }
-}
-
-async function loadSitemapPaths() {
-  if (sitemapCache && Date.now() - sitemapFetchedAt < CACHE_TTL_MS) {
-    return sitemapCache;
-  }
-  try {
-    const res = await fetch(SITEMAP_URL, { headers: { accept: 'application/xml' } });
-    if (!res.ok) return null;
-    const xml = await res.text();
-    const paths = new Set();
-    const re = /<loc>\s*([^<]+?)\s*<\/loc>/gi;
-    let m;
-    while ((m = re.exec(xml)) !== null) {
-      try {
-        const u = new URL(m[1].trim());
-        paths.add(normalizePath(u.pathname));
-      } catch (_) {
-        paths.add(normalizePath(m[1]));
-      }
-    }
-    sitemapCache = paths;
-    sitemapFetchedAt = Date.now();
-    return paths;
   } catch (_) {
     return null;
   }
@@ -126,6 +106,7 @@ function extractItemKeys(collectionKey, fieldData = {}) {
     stateId: null,
     cityId: null,
     categoryId: null,
+    categorySlug: null,
   };
   if (collectionKey === 'skills') keys.skillId = fieldData._id || null;
   if (collectionKey === 'certifications') keys.certificationId = fieldData._id || null;
@@ -138,6 +119,34 @@ function extractItemKeys(collectionKey, fieldData = {}) {
   return keys;
 }
 
+/**
+ * Landing-content items reference a specific skill/cert but not the parent
+ * category. The sitemap only publishes location+category pages, so we need
+ * the category id/slug to find those candidates. Resolve it by scanning the
+ * manifest for a skill-index or certification-index route for the same
+ * skillId / certificationId.
+ */
+function enrichCategoryFromManifest(keys, routes) {
+  if (!routes || keys.categoryId) return keys;
+  for (const meta of Object.values(routes)) {
+    if (keys.skillId && meta.skillId === keys.skillId && meta.categoryId) {
+      keys.categoryId = meta.categoryId;
+      keys.categorySlug = meta.category || null;
+      return keys;
+    }
+    if (
+      keys.certificationId &&
+      meta.certificationId === keys.certificationId &&
+      meta.categoryId
+    ) {
+      keys.categoryId = meta.categoryId;
+      keys.categorySlug = meta.category || null;
+      return keys;
+    }
+  }
+  return keys;
+}
+
 function itemDepth(keys) {
   if (keys.cityId) return 2;
   if (keys.stateId) return 1;
@@ -145,59 +154,15 @@ function itemDepth(keys) {
 }
 
 /**
- * Score a candidate route. Returns 0 if it has no shared service with the
- * item (in which case we drop it). Higher = better.
- *
- * Goal: same service, less-specific location. Service match is required;
- * the location bonus/penalty biases toward "broader" versions of the same
- * page (state over city, nationwide over state).
+ * A route is "the same page as the current item" if every location/service
+ * pin on the item matches the route with no extra specificity. Used to
+ * filter the current page out of its own candidate pool.
  */
-function scoreRoute(route, keys, slug, currentDepth) {
-  let serviceMatch = false;
-  let score = 0;
-
-  if (keys.skillId && route.skillId === keys.skillId) {
-    score += 20;
-    serviceMatch = true;
-  }
-  if (keys.certificationId && route.certificationId === keys.certificationId) {
-    score += 20;
-    serviceMatch = true;
-  }
-  if (keys.categoryId && route.categoryId === keys.categoryId) {
-    score += 8;
-    serviceMatch = true;
-  }
-  if (slug && (route.skillSlug === slug || route.certificationSlug === slug)) {
-    score += 15;
-    serviceMatch = true;
-  }
-  if (!serviceMatch) return 0;
-
-  const routeDepth = locationDepth(route);
-  const delta = currentDepth - routeDepth;
-  if (delta > 0) {
-    // Strictly broader than the current page — the ideal target.
-    score += 12 * delta;
-  } else if (delta === 0 && currentDepth > 0) {
-    // Same depth but different location = lateral, less useful.
-    score -= 4;
-  } else if (delta < 0) {
-    // More specific than the current page (e.g. linking from a national
-    // skill page down into a single city) — usually not what we want.
-    score -= 10;
-  }
-
-  if (route.expertCount > 0) score += 1;
-  return score;
-}
-
 function sameItemRoute(route, keys) {
-  // A route is "the same page" if every id that the item pins matches and no
-  // additional id makes the route more specific.
   const pins = [
     ['skillId', route.skillId],
     ['certificationId', route.certificationId],
+    ['categoryId', route.categoryId],
     ['stateId', route.stateId],
     ['cityId', route.cityId],
   ];
@@ -213,23 +178,73 @@ function sameItemRoute(route, keys) {
 }
 
 /**
- * Return up to `limit` candidate URLs ranked by relevance to the item.
- * Candidates are restricted to URLs present in the live sitemap so Claude
- * never gets pointed at a path that 404s or was un-published.
+ * Rank a candidate against the item. Service match is required; broader
+ * location than the current page gets a big bonus, narrower gets penalised.
  */
-async function findRelevantLinks(collectionKey, item, limit = 5) {
-  const [routes, sitemap] = await Promise.all([loadManifest(), loadSitemapPaths()]);
+function scoreRoute(route, keys, slug, currentDepth) {
+  let serviceMatch = false;
+  let score = 0;
+
+  if (keys.skillId && route.skillId === keys.skillId) {
+    score += 22;
+    serviceMatch = true;
+  }
+  if (keys.certificationId && route.certificationId === keys.certificationId) {
+    score += 22;
+    serviceMatch = true;
+  }
+  if (keys.categoryId && route.categoryId === keys.categoryId) {
+    score += 14;
+    serviceMatch = true;
+  }
+  if (slug && (route.skillSlug === slug || route.certificationSlug === slug)) {
+    score += 10;
+    serviceMatch = true;
+  }
+  if (!serviceMatch) return 0;
+
+  const routeDepth = locationDepth(route);
+  const delta = currentDepth - routeDepth;
+  if (delta > 0) {
+    // Strictly broader than the current page — the ideal target.
+    score += 12 * delta;
+  } else if (delta === 0 && currentDepth > 0) {
+    // Same depth but different location = lateral sibling. Useful in
+    // moderation, so don't drop it — just deprioritise.
+    score -= 3;
+  } else if (delta < 0) {
+    // More specific than the current page — not what we want, but keep a
+    // low score so it shows up only if nothing better exists.
+    score -= 8;
+  }
+
+  if (route.expertCount > 0) score += 1;
+  return score;
+}
+
+/**
+ * Return up to `limit` candidates ranked by relevance to the item.
+ * Candidates are restricted to URLs present in the live sitemap.
+ */
+async function findRelevantLinks(collectionKey, item, limit = 8) {
+  const [routes, sitemap] = await Promise.all([
+    loadManifest(),
+    sitemapStore.getPathSet(),
+  ]);
   if (!routes) return [];
   const fd = item.fieldData || {};
-  const keys = extractItemKeys(collectionKey, { ...fd, _id: item.id });
+  const keys = enrichCategoryFromManifest(
+    extractItemKeys(collectionKey, { ...fd, _id: item.id }),
+    routes
+  );
   const slug = fd.slug || null;
   const currentDepth = itemDepth(keys);
 
   const scored = [];
   for (const [path, meta] of Object.entries(routes)) {
     const r = normalizeRoute(path, meta);
-    if (sitemap && !sitemap.has(r.normalizedPath)) continue; // not a live URL
-    if (sameItemRoute(r, keys)) continue; // don't recommend the page itself
+    if (sitemap && !sitemap.has(r.normalizedPath)) continue;
+    if (sameItemRoute(r, keys)) continue;
     const score = scoreRoute(r, keys, slug, currentDepth);
     if (score <= 0) continue;
     scored.push({ ...r, score });
@@ -237,32 +252,43 @@ async function findRelevantLinks(collectionKey, item, limit = 5) {
   scored.sort(
     (a, b) =>
       b.score - a.score ||
-      locationDepth(a) - locationDepth(b) || // prefer broader on tie
+      locationDepth(a) - locationDepth(b) ||
       b.expertCount - a.expertCount
   );
-  const top = scored.slice(0, limit);
 
-  // Always offer a safe fallback so Claude never has to invent a URL.
+  // Dedupe by normalized path in case the manifest has two entries resolving
+  // to the same URL.
+  const seen = new Set();
+  const top = [];
+  for (const r of scored) {
+    if (seen.has(r.normalizedPath)) continue;
+    seen.add(r.normalizedPath);
+    top.push(r);
+    if (top.length >= limit) break;
+  }
+
+  // Always append a safe fallback so Claude can still assemble a closing
+  // paragraph if every ranked candidate failed.
   const fallbackPath = '/hire';
-  const fallback = {
-    url: `${siteBaseUrl()}${fallbackPath}`,
-    path: fallbackPath,
-    normalizedPath: normalizePath(fallbackPath),
-    type: 'directory-root',
-    skillName: null,
-    certificationName: null,
-    categoryName: null,
-    cityName: null,
-    stateName: null,
-    expertCount: 0,
-    score: 0,
-  };
-  if (!top.some((r) => r.normalizedPath === fallback.normalizedPath)) top.push(fallback);
+  if (!top.some((r) => r.normalizedPath === normalizePath(fallbackPath))) {
+    top.push({
+      url: `${siteBaseUrl()}${fallbackPath}`,
+      path: fallbackPath,
+      normalizedPath: normalizePath(fallbackPath),
+      type: 'directory-root',
+      skillName: null,
+      certificationName: null,
+      categoryName: null,
+      cityName: null,
+      stateName: null,
+      expertCount: 0,
+      score: 0,
+    });
+  }
   return top;
 }
 
 function labelFor(l) {
-  // Describe the target so Claude can pick a human-readable anchor text.
   const service = l.skillName || l.certificationName || l.categoryName;
   const locationParts = [l.cityName, l.stateName].filter(Boolean).join(', ');
   if (service && locationParts) return `${service} experts in ${locationParts}`;
@@ -276,19 +302,15 @@ function formatLinksForPrompt(links) {
   const lines = links.map((l) => `- ${l.url}  (${labelFor(l)})`);
   return [
     '## Candidate Gyde links for the closing paragraph',
-    'Pick ONE of these published URLs for the closing `<a>` tag. Do not invent a URL.',
-    'The list is ordered best → worst: prefer a page that offers the SAME service',
-    'but at a BROADER location scope than the current page — e.g. from a city',
-    'page link up to the state-level page for the same service, from a state page',
-    'link up to the nationwide service page. Only fall back to a sibling or the',
-    '/hire directory if nothing broader is available.',
+    'Pick 2-3 of the following published URLs and link to them from the closing paragraph, each as a plain `<a href="...">` tag with natural anchor text. Do NOT invent a URL and do NOT link to the current page itself.',
+    'The list is ordered best → worst. Prefer pages that offer the SAME service at a BROADER location than the current page (e.g. from a city page link up to the state roll-up, from a state page link up to the nationwide service). If the current page is already nationwide, it is fine to pick related category or state-level pages instead.',
+    'Use the `/hire` fallback only if no better choices are available.',
     ...lines,
   ].join('\n');
 }
 
 module.exports = {
   loadManifest,
-  loadSitemapPaths,
   findRelevantLinks,
   formatLinksForPrompt,
   siteBaseUrl,
