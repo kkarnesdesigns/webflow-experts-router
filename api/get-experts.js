@@ -25,35 +25,35 @@ let expertsCache = {
 let skillsCache = {
   data: null,
   timestamp: 0,
-  ttl: 30 * 60 * 1000 // 30 minutes
+  ttl: 60 * 1000 // 60 seconds — short enough for AI Content Studio writes to propagate quickly
 };
 
 // Cache for cities data (to look up city names)
 let citiesCache = {
   data: null,
   timestamp: 0,
-  ttl: 30 * 60 * 1000 // 30 minutes
+  ttl: 60 * 1000 // 60 seconds — short enough for AI Content Studio writes to propagate quickly
 };
 
 // Cache for states data (to look up state names)
 let statesCache = {
   data: null,
   timestamp: 0,
-  ttl: 30 * 60 * 1000 // 30 minutes
+  ttl: 60 * 1000 // 60 seconds — short enough for AI Content Studio writes to propagate quickly
 };
 
 // Cache for certifications data (to look up certification -> category mapping)
 let certificationsCache = {
   data: null,
   timestamp: 0,
-  ttl: 30 * 60 * 1000 // 30 minutes
+  ttl: 60 * 1000 // 60 seconds — short enough for AI Content Studio writes to propagate quickly
 };
 
 // Cache for SEO landing content
 let seoContentCache = {
   data: null,
   timestamp: 0,
-  ttl: 30 * 60 * 1000 // 30 minutes
+  ttl: 60 * 1000 // 60 seconds — short enough for AI Content Studio writes to propagate quickly
 };
 
 /**

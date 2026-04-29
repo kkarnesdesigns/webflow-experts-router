@@ -456,7 +456,7 @@ async function approveCurrent() {
   const itemId = state.currentItem.id;
   await busy.wrap('Publishing to Webflow…', async () => {
     try {
-      await api('/save', {
+      const data = await api('/save', {
         method: 'POST',
         body: JSON.stringify({
           collection: state.currentCollection,
@@ -465,6 +465,17 @@ async function approveCurrent() {
           publish: true,
         }),
       });
+      // /save always returns HTTP 200; per-item success lives in results[].ok.
+      const result = (data.results || []).find((r) => r.itemId === itemId) || data.results?.[0];
+      if (!result || !result.ok) {
+        const msg = result?.error || 'Webflow rejected the update';
+        toast('Publish failed: ' + msg, 6000);
+        if (state.batchResults.has(itemId)) {
+          state.batchResults.set(itemId, { status: 'error', error: msg });
+          renderBatchPanel();
+        }
+        return;
+      }
       toast('Published ✓');
       // If this item was part of a batch queue, mark it saved so the panel
       // and "approve all" button stay in sync.
@@ -475,7 +486,7 @@ async function approveCurrent() {
       }
       await loadItems();
     } catch (e) {
-      toast('Publish failed: ' + e.message, 5000);
+      toast('Publish failed: ' + e.message, 6000);
     } finally {
       $('#btn-approve').disabled = false;
     }
@@ -603,12 +614,28 @@ async function batchApprove() {
           publish: true,
         }),
       });
+      let okCount = 0;
+      let failCount = 0;
+      let firstError = '';
       for (const r of data.results) {
         const prev = state.batchResults.get(r.itemId) || {};
-        state.batchResults.set(r.itemId, r.ok ? { ...prev, status: 'saved' } : { status: 'error', error: r.error });
+        if (r.ok) {
+          okCount++;
+          state.batchResults.set(r.itemId, { ...prev, status: 'saved' });
+        } else {
+          failCount++;
+          if (!firstError) firstError = r.error || 'unknown error';
+          state.batchResults.set(r.itemId, { status: 'error', error: r.error });
+        }
       }
       renderBatchPanel();
-      toast('Batch published ✓');
+      if (failCount === 0) {
+        toast(`Batch published ✓ (${okCount})`);
+      } else if (okCount === 0) {
+        toast(`Batch publish failed: ${firstError}`, 6000);
+      } else {
+        toast(`Published ${okCount}, ${failCount} failed: ${firstError}`, 6000);
+      }
       await loadItems();
     } catch (e) {
       toast('Batch publish failed: ' + e.message, 5000);
